@@ -1,10 +1,19 @@
-import { pgTable, uuid, varchar, text, integer, bigint } from "drizzle-orm/pg-core";
+import {
+  bigint,
+  integer,
+  pgTable,
+  text,
+  uuid,
+  varchar,
+} from "drizzle-orm/pg-core";
 import { auditColumns } from "./audit-columns";
-import { media } from "./media.model";
 import { colors } from "./color.model";
+import { media } from "./media.model";
 
 export const products = pgTable("products", {
-  id: uuid("id").primaryKey().$defaultFn(() => Bun.randomUUIDv7()),
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => Bun.randomUUIDv7()),
   name: varchar("name", { length: 255 }).notNull(),
   baseSku: varchar("base_sku", { length: 255 }).notNull().unique(),
   description: text("description"),
@@ -17,7 +26,9 @@ export const products = pgTable("products", {
 });
 
 export const productMediaShowcase = pgTable("product_media_showcase", {
-  id: uuid("id").primaryKey().$defaultFn(() => Bun.randomUUIDv7()),
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => Bun.randomUUIDv7()),
   productId: uuid("product_id")
     .notNull()
     .references(() => products.id),
@@ -29,7 +40,9 @@ export const productMediaShowcase = pgTable("product_media_showcase", {
 });
 
 export const detailProducts = pgTable("detail_products", {
-  id: uuid("id").primaryKey().$defaultFn(() => Bun.randomUUIDv7()),
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => Bun.randomUUIDv7()),
   productId: uuid("product_id")
     .notNull()
     .references(() => products.id),
@@ -40,13 +53,17 @@ export const detailProducts = pgTable("detail_products", {
     .notNull()
     .unique(),
   discountedPrice: bigint("discounted_price", { mode: "number" }).notNull(),
-  nonDiscountedPrice: bigint("non_discounted_price", { mode: "number" }).notNull(),
+  nonDiscountedPrice: bigint("non_discounted_price", {
+    mode: "number",
+  }).notNull(),
   visibility: varchar("visibility", { length: 15 }).notNull(),
   ...auditColumns,
 });
 
 export const detailProductImages = pgTable("detail_product_images", {
-  id: uuid("id").primaryKey().$defaultFn(() => Bun.randomUUIDv7()),
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => Bun.randomUUIDv7()),
   detailProductId: uuid("detail_product_id")
     .notNull()
     .references(() => detailProducts.id),

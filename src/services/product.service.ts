@@ -1,4 +1,4 @@
-import { ProductRepository } from "../repositories/product.repository";
+import type { ProductRepository } from "../repositories/product.repository";
 import { db } from "../utils/db";
 
 interface CreateProductVariant {
@@ -63,11 +63,17 @@ export class ProductService {
     const foundMedia = await this.repo.findMediaByFileKeys(allFileKeys);
     const fileKeyToMediaId = new Map(foundMedia.map((m) => [m.fileKey, m.id]));
 
-    // Check all filekeys are found
-    for (const fileKey of allFileKeys) {
-      if (!fileKeyToMediaId.has(fileKey)) {
+    const getMediaId = (fileKey: string) => {
+      const mediaId = fileKeyToMediaId.get(fileKey);
+      if (mediaId === undefined) {
         throw new Error(`media ${fileKey} not found`);
       }
+      return mediaId;
+    };
+
+    // Check all filekeys are found
+    for (const fileKey of allFileKeys) {
+      getMediaId(fileKey);
     }
 
     // Insert in transaction
@@ -84,21 +90,19 @@ export class ProductService {
           boxDimension: input.boxDimensions,
           status: input.status,
         },
-        tx
+        tx,
       );
 
       // Create product media showcase
       const showcaseRows = input.media.map((fileKey, index) => ({
         productId: product.id,
-        mediaId: fileKeyToMediaId.get(fileKey)!,
+        mediaId: getMediaId(fileKey),
         order: index,
       }));
       await this.repo.createProductMediaShowcase(showcaseRows, tx);
 
       // Create detail products and related images + collections
-      for (let variantIndex = 0; variantIndex < input.variant.length; variantIndex++) {
-        const variant = input.variant[variantIndex];
-
+      for (const [variantIndex, variant] of input.variant.entries()) {
         const detailProduct = await this.repo.createDetailProduct(
           {
             productId: product.id,
@@ -108,13 +112,13 @@ export class ProductService {
             nonDiscountedPrice: variant.price,
             visibility: variant.visibility,
           },
-          tx
+          tx,
         );
 
         // Create detail product images
         const imageRows = variant.variantMedia.map((fileKey, index) => ({
           detailProductId: detailProduct.id,
-          mediaId: fileKeyToMediaId.get(fileKey)!,
+          mediaId: getMediaId(fileKey),
           order: index,
         }));
         await this.repo.createDetailProductImages(imageRows, tx);
@@ -128,7 +132,7 @@ export class ProductService {
               order: variantIndex,
             },
           ],
-          tx
+          tx,
         );
       }
 

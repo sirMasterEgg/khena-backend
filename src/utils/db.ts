@@ -8,3 +8,5 @@ const client = new Client({
 await client.connect();
 
 export const db = drizzle(client);
+
+export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];

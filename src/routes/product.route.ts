@@ -1,7 +1,7 @@
-import { Elysia } from "elysia";
+import type { Elysia } from "elysia";
+import { ProductController } from "../controllers/product.controller";
 import { ProductRepository } from "../repositories/product.repository";
 import { ProductService } from "../services/product.service";
-import { ProductController } from "../controllers/product.controller";
 
 const repo = new ProductRepository();
 const service = new ProductService(repo);

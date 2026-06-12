@@ -1,19 +1,22 @@
-import { db } from "../utils/db";
+import { eq, inArray } from "drizzle-orm";
 import {
-  products,
-  productMediaShowcase,
-  detailProducts,
-  detailProductImages,
-  type NewProduct,
-  type NewProductMediaShowcase,
-  type NewDetailProduct,
-  type NewDetailProductImage,
-} from "../models/product.model";
+  collections,
+  type NewProductCollection,
+  productCollections,
+} from "../models/collection.model";
 import { colors } from "../models/color.model";
 import { media } from "../models/media.model";
-import { collections } from "../models/collection.model";
-import { productCollections } from "../models/collection.model";
-import { eq, inArray } from "drizzle-orm";
+import {
+  detailProductImages,
+  detailProducts,
+  type NewDetailProduct,
+  type NewDetailProductImage,
+  type NewProduct,
+  type NewProductMediaShowcase,
+  productMediaShowcase,
+  products,
+} from "../models/product.model";
+import { db, type Tx } from "../utils/db";
 
 export class ProductRepository {
   async findByBaseSku(sku: string) {
@@ -26,7 +29,10 @@ export class ProductRepository {
   }
 
   async findMediaByFileKeys(fileKeys: string[]) {
-    return await db.select().from(media).where(inArray(media.fileKey, fileKeys));
+    return await db
+      .select()
+      .from(media)
+      .where(inArray(media.fileKey, fileKeys));
   }
 
   async findCollectionById(id: string) {
@@ -42,31 +48,33 @@ export class ProductRepository {
     return await db.select().from(colors).where(inArray(colors.id, ids));
   }
 
-  async createProduct(data: NewProduct, tx: any) {
+  async createProduct(data: NewProduct, tx: Tx) {
     const result = await tx.insert(products).values(data).returning();
-    return result[0];
+    const product = result[0];
+    if (!product) {
+      throw new Error("failed to create product");
+    }
+    return product;
   }
 
-  async createProductMediaShowcase(
-    rows: NewProductMediaShowcase[],
-    tx: any
-  ) {
+  async createProductMediaShowcase(rows: NewProductMediaShowcase[], tx: Tx) {
     return await tx.insert(productMediaShowcase).values(rows).returning();
   }
 
-  async createDetailProduct(data: NewDetailProduct, tx: any) {
+  async createDetailProduct(data: NewDetailProduct, tx: Tx) {
     const result = await tx.insert(detailProducts).values(data).returning();
-    return result[0];
+    const detailProduct = result[0];
+    if (!detailProduct) {
+      throw new Error("failed to create detail product");
+    }
+    return detailProduct;
   }
 
-  async createDetailProductImages(rows: NewDetailProductImage[], tx: any) {
+  async createDetailProductImages(rows: NewDetailProductImage[], tx: Tx) {
     return await tx.insert(detailProductImages).values(rows).returning();
   }
 
-  async createProductCollections(
-    rows: any[],
-    tx: any
-  ) {
+  async createProductCollections(rows: NewProductCollection[], tx: Tx) {
     return await tx.insert(productCollections).values(rows).returning();
   }
 }

@@ -1,10 +1,12 @@
-import { pgTable, uuid, varchar, integer } from "drizzle-orm/pg-core";
+import { integer, pgTable, uuid, varchar } from "drizzle-orm/pg-core";
 import { auditColumns } from "./audit-columns";
 import { media } from "./media.model";
 import { detailProducts } from "./product.model";
 
 export const collections = pgTable("collections", {
-  id: uuid("id").primaryKey().$defaultFn(() => Bun.randomUUIDv7()),
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => Bun.randomUUIDv7()),
   name: varchar("name", { length: 255 }).notNull(),
   slug: varchar("slug", { length: 255 }).notNull().unique(),
   coverImage: uuid("cover_image").references(() => media.id),
@@ -13,7 +15,9 @@ export const collections = pgTable("collections", {
 });
 
 export const productCollections = pgTable("product_collections", {
-  id: uuid("id").primaryKey().$defaultFn(() => Bun.randomUUIDv7()),
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => Bun.randomUUIDv7()),
   collectionId: uuid("collection_id")
     .notNull()
     .references(() => collections.id),
