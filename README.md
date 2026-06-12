@@ -76,13 +76,25 @@ bun run db:migrate
 
 ## Development
 
-Menjalankan server dengan hot reload:
+### Menjalankan Server
+
+Server dengan hot reload:
 
 ```bash
 bun run dev
 ```
 
 Server akan berjalan di `http://localhost:3000`
+
+### Code Quality
+
+Menggunakan Biome untuk linting dan formatting:
+
+```bash
+bun run lint     # cek masalah lint
+bun run format   # format semua file di src/
+bun run check    # lint + format sekaligus (auto-fix)
+```
 
 ## Production
 
@@ -103,16 +115,6 @@ GET /health
 Response:
 ```json
 { "status": "ok" }
-```
-
-### Users (Example)
-
-```
-GET    /users          # Get all users
-GET    /users/:id      # Get user by ID
-POST   /users          # Create user (body: { name, email })
-PUT    /users/:id      # Update user (body: { name?, email? })
-DELETE /users/:id      # Delete user
 ```
 
 ## Development Guidelines

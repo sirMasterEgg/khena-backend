@@ -6,12 +6,16 @@
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
+    "lint": "biome lint ./src",
+    "format": "biome format --write ./src",
+    "check": "biome check --write ./src",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:pull": "drizzle-kit pull",
     "db:push": "drizzle-kit push"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.0",
     "@types/bun": "latest",
     "@types/pg": "^8.20.0",
     "drizzle-kit": "^0.31.10"
