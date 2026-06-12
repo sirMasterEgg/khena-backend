@@ -1,11 +1,8 @@
 import { Elysia } from "elysia";
-import { registerUserRoutes } from "./routes/user.route";
 
 const port = process.env.PORT ? Number(process.env.PORT) : 3000;
 
-const app = new Elysia()
-  .get("/health", () => ({ status: "ok" }))
-  .use(registerUserRoutes);
+const app = new Elysia().get("/health", () => ({ status: "ok" }));
 
 app.listen(port, () => {
   console.log(`🦊 Server running at http://localhost:${port}`);
