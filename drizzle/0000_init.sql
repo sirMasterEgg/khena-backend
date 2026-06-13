@@ -53,20 +53,45 @@ CREATE TABLE "finishes" (
 	CONSTRAINT "finishes_name_unique" UNIQUE("name")
 );
 --> statement-breakpoint
+CREATE TABLE "folders" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"name" varchar(255) NOT NULL,
+	"parent_id" uuid,
+	"path" text NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"deleted_at" timestamp,
+	"created_by" varchar(255),
+	"updated_by" varchar(255),
+	"deleted_by" varchar(255)
+);
+--> statement-breakpoint
 CREATE TABLE "media" (
 	"id" uuid PRIMARY KEY NOT NULL,
-	"file_name" varchar(255) NOT NULL,
-	"file_key" varchar(255) NOT NULL,
-	"file_type" varchar(5) NOT NULL,
+	"folder_id" uuid,
+	"name" varchar(255) NOT NULL,
+	"original_name" varchar(255),
+	"type" varchar(20) NOT NULL,
+	"mime_type" varchar(100),
+	"extension" varchar(10),
+	"size_bytes" bigint NOT NULL,
+	"storage_provider" varchar(10) NOT NULL,
+	"bucket" varchar(100) NOT NULL,
+	"object_key" text NOT NULL,
+	"width" integer,
+	"height" integer,
+	"duration" numeric,
+	"thumbnail_key" text,
+	"alt_text" text,
+	"metadata" text,
+	"status" varchar(20) DEFAULT 'pending' NOT NULL,
 	"media_category_id" uuid,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	"deleted_at" timestamp,
 	"created_by" varchar(255),
 	"updated_by" varchar(255),
-	"deleted_by" varchar(255),
-	CONSTRAINT "media_file_name_unique" UNIQUE("file_name"),
-	CONSTRAINT "media_file_key_unique" UNIQUE("file_key")
+	"deleted_by" varchar(255)
 );
 --> statement-breakpoint
 CREATE TABLE "media_categories" (
@@ -148,6 +173,8 @@ ALTER TABLE "product_collections" ADD CONSTRAINT "product_collections_collection
 ALTER TABLE "product_collections" ADD CONSTRAINT "product_collections_detail_product_id_detail_products_id_fk" FOREIGN KEY ("detail_product_id") REFERENCES "public"."detail_products"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "colors" ADD CONSTRAINT "colors_swatch_photo_media_id_fk" FOREIGN KEY ("swatch_photo") REFERENCES "public"."media"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "colors" ADD CONSTRAINT "colors_finishes_id_finishes_id_fk" FOREIGN KEY ("finishes_id") REFERENCES "public"."finishes"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "folders" ADD CONSTRAINT "folders_parent_id_folders_id_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."folders"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "media" ADD CONSTRAINT "media_folder_id_folders_id_fk" FOREIGN KEY ("folder_id") REFERENCES "public"."folders"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "media" ADD CONSTRAINT "media_media_category_id_media_categories_id_fk" FOREIGN KEY ("media_category_id") REFERENCES "public"."media_categories"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "detail_product_images" ADD CONSTRAINT "detail_product_images_detail_product_id_detail_products_id_fk" FOREIGN KEY ("detail_product_id") REFERENCES "public"."detail_products"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "detail_product_images" ADD CONSTRAINT "detail_product_images_media_id_media_id_fk" FOREIGN KEY ("media_id") REFERENCES "public"."media"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint

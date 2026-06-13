@@ -51,29 +51,31 @@ export class ProductService {
       }
     }
 
-    // Collect all filekeys
-    const allFileKeys = [
+    // Collect all object keys
+    const allObjectKeys = [
       input.productDimension,
       input.boxDimensions,
       ...input.media,
       ...input.variant.flatMap((v) => v.variantMedia),
     ];
 
-    // Resolve filekeys to media ids
-    const foundMedia = await this.repo.findMediaByFileKeys(allFileKeys);
-    const fileKeyToMediaId = new Map(foundMedia.map((m) => [m.fileKey, m.id]));
+    // Resolve object keys to media ids
+    const foundMedia = await this.repo.findMediaByObjectKeys(allObjectKeys);
+    const objectKeyToMediaId = new Map(
+      foundMedia.map((m) => [m.objectKey, m.id]),
+    );
 
-    const getMediaId = (fileKey: string) => {
-      const mediaId = fileKeyToMediaId.get(fileKey);
+    const getMediaId = (objectKey: string) => {
+      const mediaId = objectKeyToMediaId.get(objectKey);
       if (mediaId === undefined) {
-        throw new Error(`media ${fileKey} not found`);
+        throw new Error(`media ${objectKey} not found`);
       }
       return mediaId;
     };
 
-    // Check all filekeys are found
-    for (const fileKey of allFileKeys) {
-      getMediaId(fileKey);
+    // Check all object keys are found
+    for (const objectKey of allObjectKeys) {
+      getMediaId(objectKey);
     }
 
     // Insert in transaction
