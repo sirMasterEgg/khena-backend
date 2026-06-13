@@ -8,6 +8,13 @@
       "when": 1781336468793,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1718325040000,
+      "tag": "0001_product_dimension_media_refs",
+      "breakpoints": true
     }
   ]
 }
