@@ -28,11 +28,11 @@ export class ProductRepository {
     return result[0];
   }
 
-  async findMediaByFileKeys(fileKeys: string[]) {
+  async findMediaByObjectKeys(objectKeys: string[]) {
     return await db
       .select()
       .from(media)
-      .where(inArray(media.fileKey, fileKeys));
+      .where(inArray(media.objectKey, objectKeys));
   }
 
   async findCollectionById(id: string) {
