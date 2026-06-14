@@ -19,8 +19,12 @@ export const products = pgTable("products", {
   description: text("description"),
   materials: text("materials"),
   careInstruction: text("care_instruction"),
-  productDimension: text("product_dimension"),
-  boxDimension: text("box_dimension"),
+  productDimensionMediaId: uuid("product_dimension_media_id").references(
+    () => media.id,
+  ),
+  boxDimensionMediaId: uuid("box_dimension_media_id").references(
+    () => media.id,
+  ),
   status: varchar("status", { length: 255 }),
   ...auditColumns,
 });
