@@ -18,13 +18,21 @@ export const products = pgTable("products", {
   baseSku: varchar("base_sku", { length: 255 }).notNull().unique(),
   description: text("description"),
   materials: text("materials"),
-  careInstruction: text("care_instruction"),
   productDimensionMediaId: uuid("product_dimension_media_id").references(
     () => media.id,
   ),
   boxDimensionMediaId: uuid("box_dimension_media_id").references(
     () => media.id,
   ),
+  productDimensionWidth: integer("product_dimension_width"),
+  productDimensionDepth: integer("product_dimension_depth"),
+  productDimensionHeight: integer("product_dimension_height"),
+  productDimensionWeight: integer("product_dimension_weight"),
+  boxDimensionWidth: integer("box_dimension_width"),
+  boxDimensionDepth: integer("box_dimension_depth"),
+  boxDimensionHeight: integer("box_dimension_height"),
+  boxDimensionWeight: integer("box_dimension_weight"),
+  minStockAlert: integer("min_stock_alert"),
   status: varchar("status", { length: 255 }),
   ...auditColumns,
 });
@@ -56,10 +64,10 @@ export const detailProducts = pgTable("detail_products", {
   detailProductSku: varchar("detail_product_sku", { length: 255 })
     .notNull()
     .unique(),
-  discountedPrice: bigint("discounted_price", { mode: "number" }).notNull(),
-  nonDiscountedPrice: bigint("non_discounted_price", {
-    mode: "number",
-  }).notNull(),
+  price: bigint("price", { mode: "number" }).notNull(),
+  discountPercent: integer("discount_percent"),
+  capitalPrice: bigint("capital_price", { mode: "number" }).notNull(),
+  marketplacePrice: bigint("marketplace_price", { mode: "number" }).notNull(),
   visibility: varchar("visibility", { length: 15 }).notNull(),
   ...auditColumns,
 });

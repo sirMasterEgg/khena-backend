@@ -1,5 +1,11 @@
 import { eq, inArray } from "drizzle-orm";
 import {
+  careInstructions,
+  type NewCareInstruction,
+  type NewProductCareInstruction,
+  productCareInstructions,
+} from "../models/care-instruction.model";
+import {
   collections,
   type NewProductCollection,
   productCollections,
@@ -76,5 +82,21 @@ export class ProductRepository {
 
   async createProductCollections(rows: NewProductCollection[], tx: Tx) {
     return await tx.insert(productCollections).values(rows).returning();
+  }
+
+  async createCareInstruction(data: NewCareInstruction, tx: Tx) {
+    const result = await tx.insert(careInstructions).values(data).returning();
+    const row = result[0];
+    if (!row) {
+      throw new Error("failed to create care instruction");
+    }
+    return row;
+  }
+
+  async createProductCareInstructions(
+    rows: NewProductCareInstruction[],
+    tx: Tx,
+  ) {
+    return await tx.insert(productCareInstructions).values(rows).returning();
   }
 }
