@@ -8,4 +8,7 @@ export default defineConfig({
     // biome-ignore lint/style/noNonNullAssertion: We are sure that DATABASE_URL will be provided in the environment variables.
     url: process.env.DATABASE_URL!,
   },
+  migrations: {
+    schema: "public", // used in PostgreSQL only, `drizzle` by default
+  },
 });
