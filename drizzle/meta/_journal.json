@@ -15,6 +15,13 @@
       "when": 1781534152478,
       "tag": "0001_care_instructions_dimension_pricing_and_media_ref",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781611783091,
+      "tag": "0002_add_room_types_categories_and_product_category",
+      "breakpoints": true
     }
   ]
 }

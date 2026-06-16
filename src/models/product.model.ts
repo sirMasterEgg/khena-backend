@@ -7,6 +7,7 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 import { auditColumns } from "./audit-columns";
+import { categories } from "./category.model";
 import { colors } from "./color.model";
 import { media } from "./media.model";
 
@@ -34,6 +35,9 @@ export const products = pgTable("products", {
   boxDimensionWeight: integer("box_dimension_weight"),
   minStockAlert: integer("min_stock_alert"),
   status: varchar("status", { length: 255 }),
+  categoryId: uuid("category_id")
+    .notNull()
+    .references(() => categories.id),
   ...auditColumns,
 });
 
