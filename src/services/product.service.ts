@@ -5,7 +5,9 @@ interface CreateProductVariant {
   colorId: string;
   sku: string;
   price: number;
-  discountedPrice: number;
+  discountPercent?: number;
+  capitalPrice: number;
+  marketplacePrice: number;
   visibility: string;
   variantMedia: string[];
 }
@@ -87,13 +89,35 @@ export class ProductService {
           baseSku: input.sku,
           description: input.description,
           materials: input.material,
-          careInstruction: JSON.stringify(input.careInstructions),
           productDimensionMediaId: getMediaId(input.productDimension),
           boxDimensionMediaId: getMediaId(input.boxDimensions),
           status: input.status,
         },
         tx,
       );
+
+      // Create care instructions and link to product
+      const careInstructionRows: {
+        instructionId: string;
+      }[] = [];
+      for (const instruction of input.careInstructions) {
+        const careInstruction = await this.repo.createCareInstruction(
+          { instruction },
+          tx,
+        );
+        careInstructionRows.push({ instructionId: careInstruction.id });
+      }
+
+      if (careInstructionRows.length > 0) {
+        const productCareInstructionRows = careInstructionRows.map((row) => ({
+          productId: product.id,
+          careInstructionId: row.instructionId,
+        }));
+        await this.repo.createProductCareInstructions(
+          productCareInstructionRows,
+          tx,
+        );
+      }
 
       // Create product media showcase
       const showcaseRows = input.media.map((fileKey, index) => ({
@@ -110,8 +134,10 @@ export class ProductService {
             productId: product.id,
             colorId: variant.colorId,
             detailProductSku: variant.sku,
-            discountedPrice: variant.discountedPrice,
-            nonDiscountedPrice: variant.price,
+            price: variant.price,
+            discountPercent: variant.discountPercent,
+            capitalPrice: variant.capitalPrice,
+            marketplacePrice: variant.marketplacePrice,
             visibility: variant.visibility,
           },
           tx,

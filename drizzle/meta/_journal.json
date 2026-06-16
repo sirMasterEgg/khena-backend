@@ -12,8 +12,8 @@
     {
       "idx": 1,
       "version": "7",
-      "when": 1718325040000,
-      "tag": "0001_product_dimension_media_refs",
+      "when": 1781534152478,
+      "tag": "0001_care_instructions_dimension_pricing_and_media_ref",
       "breakpoints": true
     }
   ]
