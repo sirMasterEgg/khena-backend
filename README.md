@@ -117,6 +117,22 @@ Response:
 { "status": "ok" }
 ```
 
+### Media Management
+
+Semua endpoint di bawah prefix `/api/media`.
+
+| Method | Path | Fungsi |
+|--------|------|--------|
+| POST | `/media/folder` | Buat folder baru |
+| POST | `/media/upload` | Minta presigned upload URL untuk 1+ file |
+| POST | `/media/confirm` | Konfirmasi upload selesai (`pending` → `ready`) |
+| GET | `/media/*` | Browse isi folder berdasarkan path |
+| GET | `/media/files/:id` | Detail 1 file (+ presigned download URL) |
+| PUT | `/media/folder/:id` | Rename / pindah folder (cascade path anak) |
+| PUT | `/media/files/:id` | Update metadata / pindah file |
+| DELETE | `/media/folder/:id` | Hapus folder (cascade soft-delete) |
+| DELETE | `/media/files/:id` | Hapus file (soft-delete DB + hapus objek S3) |
+
 ## Development Guidelines
 
 - Ikuti struktur layer yang sudah ditentukan
