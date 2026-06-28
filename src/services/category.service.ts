@@ -1,0 +1,93 @@
+import type { CategoryRepository } from "../repositories/category.repository";
+import type { RoomTypeRepository } from "../repositories/room-type.repository";
+
+type CategorySort = "order" | "category" | "created_at";
+
+const allowedSorts: CategorySort[] = ["order", "category", "created_at"];
+
+interface CreateCategoryInput {
+  roomTypeId: string;
+  category: string;
+  order: number;
+  status: string;
+}
+
+interface ListCategoriesInput {
+  search?: string;
+  status?: string;
+  roomTypeId?: string;
+  sort?: string;
+  orderDir?: string;
+  page: number;
+  limit: number;
+}
+
+type UpdateCategoryInput = CreateCategoryInput;
+
+export class CategoryService {
+  constructor(
+    private readonly categoryRepo: CategoryRepository,
+    private readonly roomTypeRepo: RoomTypeRepository,
+  ) {}
+
+  async createCategory(input: CreateCategoryInput) {
+    const roomType = await this.roomTypeRepo.findById(input.roomTypeId);
+    if (!roomType) {
+      throw new Error("room type not found");
+    }
+    return await this.categoryRepo.create({
+      category: input.category,
+      order: input.order,
+      roomTypeId: input.roomTypeId,
+      status: input.status,
+    });
+  }
+
+  async listCategories(input: ListCategoriesInput) {
+    const sort = allowedSorts.includes(input.sort as CategorySort)
+      ? (input.sort as CategorySort)
+      : "created_at";
+    const orderDir = input.orderDir === "asc" ? "asc" : "desc";
+    const { page, limit } = input;
+
+    const { rows, total } = await this.categoryRepo.list({
+      search: input.search,
+      status: input.status,
+      roomTypeId: input.roomTypeId,
+      sort,
+      orderDir,
+      page,
+      limit,
+    });
+    const totalPages = Math.ceil(total / limit);
+    return {
+      data: rows,
+      meta: { page, limit, total, totalPages },
+    };
+  }
+
+  async updateCategory(id: string, input: UpdateCategoryInput) {
+    const existing = await this.categoryRepo.findById(id);
+    if (!existing) {
+      throw new Error("category not found");
+    }
+    const roomType = await this.roomTypeRepo.findById(input.roomTypeId);
+    if (!roomType) {
+      throw new Error("room type not found");
+    }
+    return await this.categoryRepo.update(id, {
+      category: input.category,
+      order: input.order,
+      roomTypeId: input.roomTypeId,
+      status: input.status,
+    });
+  }
+
+  async deleteCategory(id: string) {
+    const existing = await this.categoryRepo.findById(id);
+    if (!existing) {
+      throw new Error("category not found");
+    }
+    await this.categoryRepo.softDelete(id);
+  }
+}
