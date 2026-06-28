@@ -1,0 +1,1 @@
+ALTER TABLE "collections" ADD COLUMN "status" varchar(15) NOT NULL;
