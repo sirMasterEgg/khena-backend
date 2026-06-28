@@ -1,6 +1,8 @@
 import { Elysia } from "elysia";
+import { CategoryRoute } from "./routes/category.route";
 import { MediaRoute } from "./routes/media.route";
 import { ProductRoute } from "./routes/product.route";
+import { RoomTypeRoute } from "./routes/room-type.route";
 
 const port = process.env.PORT ? Number(process.env.PORT) : 3000;
 
@@ -13,7 +15,9 @@ const app = new Elysia({ prefix: "/api" })
   })
   .get("/health", () => ({ status: "ok" }))
   .use(ProductRoute)
-  .use(MediaRoute);
+  .use(MediaRoute)
+  .use(RoomTypeRoute)
+  .use(CategoryRoute);
 
 app.listen(port, () => {
   console.log(`🦊 Server running at http://localhost:${port}`);
