@@ -11,6 +11,7 @@ export const collections = pgTable("collections", {
   slug: varchar("slug", { length: 255 }).notNull().unique(),
   coverImage: uuid("cover_image").references(() => media.id),
   bannerImage: uuid("banner_image").references(() => media.id),
+  status: varchar("status", { length: 15 }).notNull().default("draft"),
   ...auditColumns,
 });
 

@@ -29,6 +29,20 @@
       "when": 1781844758229,
       "tag": "0003_add_discount_customer_inventory_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1782665599016,
+      "tag": "0004_add_status_in_collections_table",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1782666374761,
+      "tag": "0005_add_default_status_in_collections_table",
+      "breakpoints": true
     }
   ]
 }
