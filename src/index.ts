@@ -1,6 +1,8 @@
 import { Elysia } from "elysia";
 import { CategoryRoute } from "./routes/category.route";
 import { CollectionRoute } from "./routes/collection.route";
+import { ColorRoute } from "./routes/color.route";
+import { FinishRoute } from "./routes/finish.route";
 import { MediaRoute } from "./routes/media.route";
 import { ProductRoute } from "./routes/product.route";
 import { RoomTypeRoute } from "./routes/room-type.route";
@@ -19,7 +21,9 @@ const app = new Elysia({ prefix: "/api" })
   .use(MediaRoute)
   .use(RoomTypeRoute)
   .use(CategoryRoute)
-  .use(CollectionRoute);
+  .use(CollectionRoute)
+  .use(FinishRoute)
+  .use(ColorRoute);
 
 app.listen(port, () => {
   console.log(`🦊 Server running at http://localhost:${port}`);
