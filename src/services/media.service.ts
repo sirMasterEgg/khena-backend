@@ -38,6 +38,33 @@ interface UpdateFileInput {
   file: UploadFileInput;
 }
 
+interface UploadDirectFile {
+  name: string;
+  type: string;
+  body: Buffer | Uint8Array;
+}
+
+interface UploadDirectInput {
+  path: string;
+  files: UploadDirectFile[];
+}
+
+interface InitMultipartInput {
+  path: string;
+  file: UploadFileInput;
+}
+
+interface CompleteMultipartInput {
+  mediaId: string;
+  uploadId: string;
+  parts: { partNumber: number; eTag: string }[];
+}
+
+interface AbortMultipartInput {
+  mediaId: string;
+  uploadId: string;
+}
+
 /** Derive the high-level media category from a mime type. */
 function deriveType(mimeType: string): string {
   if (mimeType.startsWith("image/")) {
@@ -174,6 +201,112 @@ export class MediaService {
       }
       return updated;
     });
+  }
+
+  async uploadDirect(input: UploadDirectInput) {
+    const path = normalizePath(input.path);
+    const folderId = await this.resolveFolderId(path);
+    const folderPrefix = isRootPath(path) ? undefined : path.slice(1);
+
+    const results = [];
+    for (const file of input.files) {
+      const uploaded = await this.fileService.uploadFile({
+        fileName: file.name,
+        contentType: file.type,
+        body: file.body,
+        folderPrefix,
+      });
+
+      const created = await this.repo.createMedia({
+        folderId,
+        name: sanitizeName(file.name),
+        originalName: file.name,
+        type: deriveType(file.type),
+        mimeType: file.type,
+        extension: extractExtension(file.name),
+        sizeBytes: file.body.byteLength,
+        storageProvider: uploaded.provider,
+        bucket: uploaded.bucket,
+        objectKey: uploaded.objectKey,
+        status: "ready",
+      });
+
+      results.push({
+        mediaId: created.id,
+        fileName: file.name,
+        objectKey: uploaded.objectKey,
+      });
+    }
+
+    return results;
+  }
+
+  async initMultipart(input: InitMultipartInput) {
+    const path = normalizePath(input.path);
+    const folderId = await this.resolveFolderId(path);
+    const folderPrefix = isRootPath(path) ? undefined : path.slice(1);
+
+    const init = await this.fileService.initMultipartUpload({
+      fileName: input.file.name,
+      contentType: input.file.type,
+      sizeBytes: input.file.size,
+      folderPrefix,
+    });
+
+    const created = await this.repo.createMedia({
+      folderId,
+      name: sanitizeName(input.file.name),
+      originalName: input.file.name,
+      type: deriveType(input.file.type),
+      mimeType: input.file.type,
+      extension: extractExtension(input.file.name),
+      sizeBytes: input.file.size,
+      storageProvider: init.provider,
+      bucket: init.bucket,
+      objectKey: init.objectKey,
+      status: "pending",
+    });
+
+    return {
+      mediaId: created.id,
+      uploadId: init.uploadId,
+      objectKey: init.objectKey,
+      partSize: init.partSize,
+      parts: init.parts,
+    };
+  }
+
+  async completeMultipart(input: CompleteMultipartInput) {
+    const file = await this.repo.findMediaById(input.mediaId);
+    if (!file) {
+      throw new Error("media not found");
+    }
+
+    // objectKey is taken from the DB, never trusted from the client.
+    await this.fileService.completeMultipartUpload(
+      file.objectKey,
+      input.uploadId,
+      input.parts,
+    );
+
+    const metadata = await this.fileService.getFileMetadata(file.objectKey);
+    return await this.repo.updateMedia(file.id, {
+      status: "ready",
+      sizeBytes: metadata.sizeBytes || file.sizeBytes,
+      mimeType: metadata.contentType ?? file.mimeType,
+    });
+  }
+
+  async abortMultipart(input: AbortMultipartInput) {
+    const file = await this.repo.findMediaById(input.mediaId);
+    if (!file) {
+      throw new Error("media not found");
+    }
+
+    await this.fileService.abortMultipartUpload(file.objectKey, input.uploadId);
+    await this.repo.softDeleteMedia(file.id);
+
+    return { success: true };
   }
 
   async browse(rawPath: string) {

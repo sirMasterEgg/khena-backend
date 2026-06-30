@@ -21,6 +21,33 @@ const confirmBody = t.Object({
   mediaIds: t.Array(t.String({ minLength: 1 }), { minItems: 1 }),
 });
 
+const uploadDirectBody = t.Object({
+  path: t.String(),
+  files: t.Files(),
+});
+
+const multipartInitBody = t.Object({
+  path: t.String(),
+  file: fileMeta,
+});
+
+const multipartCompleteBody = t.Object({
+  mediaId: t.String({ minLength: 1 }),
+  uploadId: t.String({ minLength: 1 }),
+  parts: t.Array(
+    t.Object({
+      partNumber: t.Number({ minimum: 1 }),
+      eTag: t.String({ minLength: 1 }),
+    }),
+    { minItems: 1 },
+  ),
+});
+
+const multipartAbortBody = t.Object({
+  mediaId: t.String({ minLength: 1 }),
+  uploadId: t.String({ minLength: 1 }),
+});
+
 const updateFileBody = t.Object({
   path: t.String(),
   file: fileMeta,
@@ -56,6 +83,51 @@ export const MediaController = (service: MediaService) =>
         return { data: result };
       },
       { body: confirmBody },
+    )
+    .post(
+      "/upload-direct",
+      async ({ body, set }) => {
+        const files = Array.isArray(body.files) ? body.files : [body.files];
+        const payload = await Promise.all(
+          files.map(async (f) => ({
+            name: f.name,
+            type: f.type,
+            body: Buffer.from(await f.arrayBuffer()),
+          })),
+        );
+        const result = await service.uploadDirect({
+          path: body.path,
+          files: payload,
+        });
+        set.status = 201;
+        return { data: result };
+      },
+      { body: uploadDirectBody },
+    )
+    .post(
+      "/upload-multipart/init",
+      async ({ body, set }) => {
+        const result = await service.initMultipart(body);
+        set.status = 201;
+        return { data: result };
+      },
+      { body: multipartInitBody },
+    )
+    .post(
+      "/upload-multipart/complete",
+      async ({ body }) => {
+        const result = await service.completeMultipart(body);
+        return { data: result };
+      },
+      { body: multipartCompleteBody },
+    )
+    .post(
+      "/upload-multipart/abort",
+      async ({ body }) => {
+        const result = await service.abortMultipart(body);
+        return { data: result };
+      },
+      { body: multipartAbortBody },
     )
     .get(
       "/files/:id",

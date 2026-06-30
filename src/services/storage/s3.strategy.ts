@@ -1,14 +1,20 @@
 import {
+  AbortMultipartUploadCommand,
+  CompleteMultipartUploadCommand,
+  CreateMultipartUploadCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
   PutObjectCommand,
   S3Client,
+  UploadPartCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import type {
+  CompletedPart,
   PresignedDownloadParams,
   PresignedUploadParams,
+  PutObjectParams,
   StorageFileMetadata,
   StorageStrategy,
 } from "./storage.strategy";
@@ -68,6 +74,17 @@ export class S3StorageStrategy implements StorageStrategy {
     return await getSignedUrl(this.client, command, { expiresIn });
   }
 
+  async putObject(params: PutObjectParams): Promise<void> {
+    const command = new PutObjectCommand({
+      Bucket: this.bucket,
+      Key: params.objectKey,
+      Body: params.body,
+      ContentType: params.contentType,
+    });
+
+    await this.client.send(command);
+  }
+
   async deleteObject(objectKey: string): Promise<void> {
     const command = new DeleteObjectCommand({
       Bucket: this.bucket,
@@ -75,6 +92,75 @@ export class S3StorageStrategy implements StorageStrategy {
     });
 
     await this.client.send(command);
+  }
+
+  async createMultipartUpload(
+    objectKey: string,
+    contentType: string,
+  ): Promise<string> {
+    const response = await this.client.send(
+      new CreateMultipartUploadCommand({
+        Bucket: this.bucket,
+        Key: objectKey,
+        ContentType: contentType,
+      }),
+    );
+
+    if (!response.UploadId) {
+      throw new Error("failed to create multipart upload");
+    }
+    return response.UploadId;
+  }
+
+  async createPresignedUploadPartUrl(
+    objectKey: string,
+    uploadId: string,
+    partNumber: number,
+    expiresInSeconds?: number,
+  ): Promise<string> {
+    const command = new UploadPartCommand({
+      Bucket: this.bucket,
+      Key: objectKey,
+      UploadId: uploadId,
+      PartNumber: partNumber,
+    });
+
+    const expiresIn = expiresInSeconds || this.defaultExpiresIn;
+    return await getSignedUrl(this.client, command, { expiresIn });
+  }
+
+  async completeMultipartUpload(
+    objectKey: string,
+    uploadId: string,
+    parts: CompletedPart[],
+  ): Promise<void> {
+    await this.client.send(
+      new CompleteMultipartUploadCommand({
+        Bucket: this.bucket,
+        Key: objectKey,
+        UploadId: uploadId,
+        MultipartUpload: {
+          // S3 requires the parts ordered by PartNumber.
+          Parts: parts
+            .slice()
+            .sort((a, b) => a.partNumber - b.partNumber)
+            .map((p) => ({ PartNumber: p.partNumber, ETag: p.eTag })),
+        },
+      }),
+    );
+  }
+
+  async abortMultipartUpload(
+    objectKey: string,
+    uploadId: string,
+  ): Promise<void> {
+    await this.client.send(
+      new AbortMultipartUploadCommand({
+        Bucket: this.bucket,
+        Key: objectKey,
+        UploadId: uploadId,
+      }),
+    );
   }
 
   async getObjectMetadata(objectKey: string): Promise<StorageFileMetadata> {
