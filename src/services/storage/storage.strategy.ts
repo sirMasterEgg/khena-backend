@@ -1,14 +1,3 @@
-export interface PresignedUploadParams {
-  objectKey: string;
-  contentType: string;
-  expiresInSeconds?: number;
-}
-
-export interface PresignedDownloadParams {
-  objectKey: string;
-  expiresInSeconds?: number;
-}
-
 export interface StorageFileMetadata {
   objectKey: string;
   sizeBytes: number;
@@ -23,6 +12,12 @@ export interface PutObjectParams {
   contentType: string;
 }
 
+export interface StorageObject {
+  body: ReadableStream;
+  contentType: string | null;
+  sizeBytes: number | null;
+}
+
 export interface CompletedPart {
   partNumber: number;
   eTag: string;
@@ -32,28 +27,26 @@ export interface StorageStrategy {
   readonly provider: string;
   readonly bucket: string;
 
-  createPresignedUploadUrl(params: PresignedUploadParams): Promise<string>;
-
-  createPresignedDownloadUrl(params: PresignedDownloadParams): Promise<string>;
-
   putObject(params: PutObjectParams): Promise<void>;
+
+  getObject(objectKey: string): Promise<StorageObject>;
 
   deleteObject(objectKey: string): Promise<void>;
 
   getObjectMetadata(objectKey: string): Promise<StorageFileMetadata>;
 
-  // ---- multipart (chunked) upload ----
+  // ---- multipart (chunked) upload — all bytes flow through the server ----
 
   createMultipartUpload(
     objectKey: string,
     contentType: string,
   ): Promise<string>;
 
-  createPresignedUploadPartUrl(
+  uploadPart(
     objectKey: string,
     uploadId: string,
     partNumber: number,
-    expiresInSeconds?: number,
+    body: Buffer | Uint8Array,
   ): Promise<string>;
 
   completeMultipartUpload(

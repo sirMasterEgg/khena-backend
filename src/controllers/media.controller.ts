@@ -12,15 +12,6 @@ const fileMeta = t.Object({
   size: t.Number({ minimum: 0 }),
 });
 
-const uploadBody = t.Object({
-  path: t.String(),
-  files: t.Array(fileMeta, { minItems: 1 }),
-});
-
-const confirmBody = t.Object({
-  mediaIds: t.Array(t.String({ minLength: 1 }), { minItems: 1 }),
-});
-
 const uploadDirectBody = t.Object({
   path: t.String(),
   files: t.Files(),
@@ -29,6 +20,13 @@ const uploadDirectBody = t.Object({
 const multipartInitBody = t.Object({
   path: t.String(),
   file: fileMeta,
+});
+
+const multipartPartBody = t.Object({
+  mediaId: t.String({ minLength: 1 }),
+  uploadId: t.String({ minLength: 1 }),
+  partNumber: t.Numeric({ minimum: 1 }),
+  chunk: t.File(),
 });
 
 const multipartCompleteBody = t.Object({
@@ -68,23 +66,6 @@ export const MediaController = (service: MediaService) =>
       { body: folderBody },
     )
     .post(
-      "/upload",
-      async ({ body, set }) => {
-        const result = await service.generateUploadUrls(body);
-        set.status = 201;
-        return { data: result };
-      },
-      { body: uploadBody },
-    )
-    .post(
-      "/confirm",
-      async ({ body }) => {
-        const result = await service.confirmUploads(body);
-        return { data: result };
-      },
-      { body: confirmBody },
-    )
-    .post(
       "/upload-direct",
       async ({ body, set }) => {
         const files = Array.isArray(body.files) ? body.files : [body.files];
@@ -114,6 +95,19 @@ export const MediaController = (service: MediaService) =>
       { body: multipartInitBody },
     )
     .post(
+      "/upload-multipart/part",
+      async ({ body }) => {
+        const result = await service.uploadMultipartPart({
+          mediaId: body.mediaId,
+          uploadId: body.uploadId,
+          partNumber: body.partNumber,
+          body: Buffer.from(await body.chunk.arrayBuffer()),
+        });
+        return { data: result };
+      },
+      { body: multipartPartBody },
+    )
+    .post(
       "/upload-multipart/complete",
       async ({ body }) => {
         const result = await service.completeMultipart(body);
@@ -134,6 +128,19 @@ export const MediaController = (service: MediaService) =>
       async ({ params }) => {
         const file = await service.getFile(params.id);
         return { data: file };
+      },
+      { params: idParams },
+    )
+    .get(
+      "/files/:id/download",
+      async ({ params }) => {
+        const file = await service.downloadFile(params.id);
+        return new Response(file.body, {
+          headers: {
+            "content-type": file.contentType,
+            "content-disposition": `attachment; filename="${file.fileName}"`,
+          },
+        });
       },
       { params: idParams },
     )

@@ -121,13 +121,19 @@ Response:
 
 Semua endpoint di bawah prefix `/api/media`.
 
+Semua upload, download, dan delete melalui server — **tidak ada presigned URL**.
+
 | Method | Path | Fungsi |
 |--------|------|--------|
 | POST | `/media/folder` | Buat folder baru |
-| POST | `/media/upload` | Minta presigned upload URL untuk 1+ file |
-| POST | `/media/confirm` | Konfirmasi upload selesai (`pending` → `ready`) |
+| POST | `/media/upload-direct` | Upload 1+ file via `multipart/form-data` (file kecil/menengah) |
+| POST | `/media/upload-multipart/init` | Mulai upload file besar (chunked): buat sesi + dapat `uploadId`, `partSize`, `partCount` |
+| POST | `/media/upload-multipart/part` | Kirim satu chunk via `multipart/form-data` → balik `{ partNumber, eTag }` |
+| POST | `/media/upload-multipart/complete` | Gabungkan part (`pending` → `ready`) |
+| POST | `/media/upload-multipart/abort` | Batalkan upload chunked + soft-delete |
 | GET | `/media/*` | Browse isi folder berdasarkan path |
-| GET | `/media/files/:id` | Detail 1 file (+ presigned download URL) |
+| GET | `/media/files/:id` | Detail metadata 1 file |
+| GET | `/media/files/:id/download` | Stream isi file melalui server |
 | PUT | `/media/folder/:id` | Rename / pindah folder (cascade path anak) |
 | PUT | `/media/files/:id` | Update metadata / pindah file |
 | DELETE | `/media/folder/:id` | Hapus folder (cascade soft-delete) |

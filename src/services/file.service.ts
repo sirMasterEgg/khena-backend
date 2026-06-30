@@ -2,23 +2,9 @@ import { createStorageStrategy } from "./storage/storage.factory";
 import type {
   CompletedPart,
   StorageFileMetadata,
+  StorageObject,
   StorageStrategy,
 } from "./storage/storage.strategy";
-
-export interface GenerateUploadUrlInput {
-  fileName: string;
-  contentType: string;
-  folderPrefix?: string;
-  expiresInSeconds?: number;
-}
-
-export interface GenerateUploadUrlResult {
-  uploadUrl: string;
-  objectKey: string;
-  bucket: string;
-  provider: string;
-  expiresInSeconds: number;
-}
 
 export interface UploadFileInput {
   fileName: string;
@@ -40,18 +26,13 @@ export interface InitMultipartInput {
   folderPrefix?: string;
 }
 
-export interface MultipartPartUrl {
-  partNumber: number;
-  uploadUrl: string;
-}
-
 export interface InitMultipartResult {
   objectKey: string;
   uploadId: string;
   bucket: string;
   provider: string;
   partSize: number;
-  parts: MultipartPartUrl[];
+  partCount: number;
 }
 
 // Ukuran tiap part untuk multipart upload. Minimal 5 MB (batasan S3).
@@ -77,26 +58,6 @@ function generateObjectKey(fileName: string, folderPrefix?: string): string {
 
 export class FileService {
   constructor(private readonly storage: StorageStrategy) {}
-
-  async generatePresignedUploadUrl(
-    input: GenerateUploadUrlInput,
-  ): Promise<GenerateUploadUrlResult> {
-    const objectKey = generateObjectKey(input.fileName, input.folderPrefix);
-
-    const uploadUrl = await this.storage.createPresignedUploadUrl({
-      objectKey,
-      contentType: input.contentType,
-      expiresInSeconds: input.expiresInSeconds,
-    });
-
-    return {
-      uploadUrl,
-      objectKey,
-      bucket: this.storage.bucket,
-      provider: this.storage.provider,
-      expiresInSeconds: input.expiresInSeconds || 900,
-    };
-  }
 
   async uploadFile(input: UploadFileInput): Promise<UploadFileResult> {
     const objectKey = generateObjectKey(input.fileName, input.folderPrefix);
@@ -128,24 +89,23 @@ export class FileService {
       input.contentType,
     );
 
-    const parts: MultipartPartUrl[] = [];
-    for (let partNumber = 1; partNumber <= partCount; partNumber++) {
-      const uploadUrl = await this.storage.createPresignedUploadPartUrl(
-        objectKey,
-        uploadId,
-        partNumber,
-      );
-      parts.push({ partNumber, uploadUrl });
-    }
-
     return {
       objectKey,
       uploadId,
       bucket: this.storage.bucket,
       provider: this.storage.provider,
       partSize: PART_SIZE,
-      parts,
+      partCount,
     };
+  }
+
+  async uploadPart(
+    objectKey: string,
+    uploadId: string,
+    partNumber: number,
+    body: Buffer | Uint8Array,
+  ): Promise<string> {
+    return await this.storage.uploadPart(objectKey, uploadId, partNumber, body);
   }
 
   async completeMultipartUpload(
@@ -163,14 +123,8 @@ export class FileService {
     await this.storage.abortMultipartUpload(objectKey, uploadId);
   }
 
-  async generatePresignedDownloadUrl(
-    objectKey: string,
-    expiresInSeconds?: number,
-  ): Promise<string> {
-    return await this.storage.createPresignedDownloadUrl({
-      objectKey,
-      expiresInSeconds,
-    });
+  async getFileStream(objectKey: string): Promise<StorageObject> {
+    return await this.storage.getObject(objectKey);
   }
 
   async deleteFile(objectKey: string): Promise<void> {

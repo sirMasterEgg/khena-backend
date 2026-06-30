@@ -9,13 +9,11 @@ import {
   S3Client,
   UploadPartCommand,
 } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import type {
   CompletedPart,
-  PresignedDownloadParams,
-  PresignedUploadParams,
   PutObjectParams,
   StorageFileMetadata,
+  StorageObject,
   StorageStrategy,
 } from "./storage.strategy";
 
@@ -23,12 +21,10 @@ export class S3StorageStrategy implements StorageStrategy {
   readonly provider: string;
   readonly bucket: string;
   private readonly client: S3Client;
-  private readonly defaultExpiresIn: number;
 
   constructor() {
     this.provider = process.env.STORAGE_PROVIDER || "s3";
     this.bucket = process.env.S3_BUCKET || "khena-media";
-    this.defaultExpiresIn = Number(process.env.PRESIGN_EXPIRES_SECONDS) || 900;
 
     const baseConfig = {
       region: process.env.S3_REGION || "us-east-1",
@@ -49,31 +45,6 @@ export class S3StorageStrategy implements StorageStrategy {
     this.client = new S3Client(clientConfig);
   }
 
-  async createPresignedUploadUrl(
-    params: PresignedUploadParams,
-  ): Promise<string> {
-    const command = new PutObjectCommand({
-      Bucket: this.bucket,
-      Key: params.objectKey,
-      ContentType: params.contentType,
-    });
-
-    const expiresIn = params.expiresInSeconds || this.defaultExpiresIn;
-    return await getSignedUrl(this.client, command, { expiresIn });
-  }
-
-  async createPresignedDownloadUrl(
-    params: PresignedDownloadParams,
-  ): Promise<string> {
-    const command = new GetObjectCommand({
-      Bucket: this.bucket,
-      Key: params.objectKey,
-    });
-
-    const expiresIn = params.expiresInSeconds || this.defaultExpiresIn;
-    return await getSignedUrl(this.client, command, { expiresIn });
-  }
-
   async putObject(params: PutObjectParams): Promise<void> {
     const command = new PutObjectCommand({
       Bucket: this.bucket,
@@ -83,6 +54,25 @@ export class S3StorageStrategy implements StorageStrategy {
     });
 
     await this.client.send(command);
+  }
+
+  async getObject(objectKey: string): Promise<StorageObject> {
+    const response = await this.client.send(
+      new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: objectKey,
+      }),
+    );
+
+    if (!response.Body) {
+      throw new Error("object not found");
+    }
+
+    return {
+      body: response.Body.transformToWebStream(),
+      contentType: response.ContentType || null,
+      sizeBytes: response.ContentLength ?? null,
+    };
   }
 
   async deleteObject(objectKey: string): Promise<void> {
@@ -112,21 +102,26 @@ export class S3StorageStrategy implements StorageStrategy {
     return response.UploadId;
   }
 
-  async createPresignedUploadPartUrl(
+  async uploadPart(
     objectKey: string,
     uploadId: string,
     partNumber: number,
-    expiresInSeconds?: number,
+    body: Buffer | Uint8Array,
   ): Promise<string> {
-    const command = new UploadPartCommand({
-      Bucket: this.bucket,
-      Key: objectKey,
-      UploadId: uploadId,
-      PartNumber: partNumber,
-    });
+    const response = await this.client.send(
+      new UploadPartCommand({
+        Bucket: this.bucket,
+        Key: objectKey,
+        UploadId: uploadId,
+        PartNumber: partNumber,
+        Body: body,
+      }),
+    );
 
-    const expiresIn = expiresInSeconds || this.defaultExpiresIn;
-    return await getSignedUrl(this.client, command, { expiresIn });
+    if (!response.ETag) {
+      throw new Error("failed to upload part");
+    }
+    return response.ETag;
   }
 
   async completeMultipartUpload(
