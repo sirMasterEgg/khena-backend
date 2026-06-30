@@ -12,13 +12,38 @@ const fileMeta = t.Object({
   size: t.Number({ minimum: 0 }),
 });
 
-const uploadBody = t.Object({
+const uploadDirectBody = t.Object({
   path: t.String(),
-  files: t.Array(fileMeta, { minItems: 1 }),
+  files: t.Files(),
 });
 
-const confirmBody = t.Object({
-  mediaIds: t.Array(t.String({ minLength: 1 }), { minItems: 1 }),
+const multipartInitBody = t.Object({
+  path: t.String(),
+  file: fileMeta,
+});
+
+const multipartPartBody = t.Object({
+  mediaId: t.String({ minLength: 1 }),
+  uploadId: t.String({ minLength: 1 }),
+  partNumber: t.Numeric({ minimum: 1 }),
+  chunk: t.File(),
+});
+
+const multipartCompleteBody = t.Object({
+  mediaId: t.String({ minLength: 1 }),
+  uploadId: t.String({ minLength: 1 }),
+  parts: t.Array(
+    t.Object({
+      partNumber: t.Number({ minimum: 1 }),
+      eTag: t.String({ minLength: 1 }),
+    }),
+    { minItems: 1 },
+  ),
+});
+
+const multipartAbortBody = t.Object({
+  mediaId: t.String({ minLength: 1 }),
+  uploadId: t.String({ minLength: 1 }),
 });
 
 const updateFileBody = t.Object({
@@ -41,27 +66,81 @@ export const MediaController = (service: MediaService) =>
       { body: folderBody },
     )
     .post(
-      "/upload",
+      "/upload-direct",
       async ({ body, set }) => {
-        const result = await service.generateUploadUrls(body);
+        const files = Array.isArray(body.files) ? body.files : [body.files];
+        const payload = await Promise.all(
+          files.map(async (f) => ({
+            name: f.name,
+            type: f.type,
+            body: Buffer.from(await f.arrayBuffer()),
+          })),
+        );
+        const result = await service.uploadDirect({
+          path: body.path,
+          files: payload,
+        });
         set.status = 201;
         return { data: result };
       },
-      { body: uploadBody },
+      { body: uploadDirectBody },
     )
     .post(
-      "/confirm",
-      async ({ body }) => {
-        const result = await service.confirmUploads(body);
+      "/upload-multipart/init",
+      async ({ body, set }) => {
+        const result = await service.initMultipart(body);
+        set.status = 201;
         return { data: result };
       },
-      { body: confirmBody },
+      { body: multipartInitBody },
+    )
+    .post(
+      "/upload-multipart/part",
+      async ({ body }) => {
+        const result = await service.uploadMultipartPart({
+          mediaId: body.mediaId,
+          uploadId: body.uploadId,
+          partNumber: body.partNumber,
+          body: Buffer.from(await body.chunk.arrayBuffer()),
+        });
+        return { data: result };
+      },
+      { body: multipartPartBody },
+    )
+    .post(
+      "/upload-multipart/complete",
+      async ({ body }) => {
+        const result = await service.completeMultipart(body);
+        return { data: result };
+      },
+      { body: multipartCompleteBody },
+    )
+    .post(
+      "/upload-multipart/abort",
+      async ({ body }) => {
+        const result = await service.abortMultipart(body);
+        return { data: result };
+      },
+      { body: multipartAbortBody },
     )
     .get(
       "/files/:id",
       async ({ params }) => {
         const file = await service.getFile(params.id);
         return { data: file };
+      },
+      { params: idParams },
+    )
+    .get(
+      "/files/:id/download",
+      async ({ params }) => {
+        const file = await service.downloadFile(params.id);
+        return new Response(file.body, {
+          headers: {
+            "content-type": file.contentType,
+            "content-disposition": `attachment; filename="${file.fileName}"`,
+          },
+        });
       },
       { params: idParams },
     )

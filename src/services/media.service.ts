@@ -19,15 +19,6 @@ interface UploadFileInput {
   size: number;
 }
 
-interface UploadInput {
-  path: string;
-  files: UploadFileInput[];
-}
-
-interface ConfirmInput {
-  mediaIds: string[];
-}
-
 interface UpdateFolderInput {
   path: string;
   folderName: string;
@@ -36,6 +27,40 @@ interface UpdateFolderInput {
 interface UpdateFileInput {
   path: string;
   file: UploadFileInput;
+}
+
+interface UploadDirectFile {
+  name: string;
+  type: string;
+  body: Buffer | Uint8Array;
+}
+
+interface UploadDirectInput {
+  path: string;
+  files: UploadDirectFile[];
+}
+
+interface InitMultipartInput {
+  path: string;
+  file: UploadFileInput;
+}
+
+interface UploadPartInput {
+  mediaId: string;
+  uploadId: string;
+  partNumber: number;
+  body: Buffer | Uint8Array;
+}
+
+interface CompleteMultipartInput {
+  mediaId: string;
+  uploadId: string;
+  parts: { partNumber: number; eTag: string }[];
+}
+
+interface AbortMultipartInput {
+  mediaId: string;
+  uploadId: string;
 }
 
 /** Derive the high-level media category from a mime type. */
@@ -108,16 +133,17 @@ export class MediaService {
     });
   }
 
-  async generateUploadUrls(input: UploadInput) {
+  async uploadDirect(input: UploadDirectInput) {
     const path = normalizePath(input.path);
     const folderId = await this.resolveFolderId(path);
     const folderPrefix = isRootPath(path) ? undefined : path.slice(1);
 
     const results = [];
     for (const file of input.files) {
-      const presigned = await this.fileService.generatePresignedUploadUrl({
+      const uploaded = await this.fileService.uploadFile({
         fileName: file.name,
         contentType: file.type,
+        body: file.body,
         folderPrefix,
       });
 
@@ -128,52 +154,106 @@ export class MediaService {
         type: deriveType(file.type),
         mimeType: file.type,
         extension: extractExtension(file.name),
-        sizeBytes: file.size,
-        storageProvider: presigned.provider,
-        bucket: presigned.bucket,
-        objectKey: presigned.objectKey,
-        status: "pending",
+        sizeBytes: file.body.byteLength,
+        storageProvider: uploaded.provider,
+        bucket: uploaded.bucket,
+        objectKey: uploaded.objectKey,
+        status: "ready",
       });
 
       results.push({
         mediaId: created.id,
         fileName: file.name,
-        uploadUrl: presigned.uploadUrl,
-        objectKey: presigned.objectKey,
-        expiresInSeconds: presigned.expiresInSeconds,
+        objectKey: uploaded.objectKey,
       });
     }
 
     return results;
   }
 
-  async confirmUploads(input: ConfirmInput) {
-    const found = await this.repo.findMediaByIds(input.mediaIds);
-    const foundIds = new Set(found.map((m) => m.id));
-    for (const id of input.mediaIds) {
-      if (!foundIds.has(id)) {
-        throw new Error(`media ${id} not found`);
-      }
+  async initMultipart(input: InitMultipartInput) {
+    const path = normalizePath(input.path);
+    const folderId = await this.resolveFolderId(path);
+    const folderPrefix = isRootPath(path) ? undefined : path.slice(1);
+
+    const init = await this.fileService.initMultipartUpload({
+      fileName: input.file.name,
+      contentType: input.file.type,
+      sizeBytes: input.file.size,
+      folderPrefix,
+    });
+
+    const created = await this.repo.createMedia({
+      folderId,
+      name: sanitizeName(input.file.name),
+      originalName: input.file.name,
+      type: deriveType(input.file.type),
+      mimeType: input.file.type,
+      extension: extractExtension(input.file.name),
+      sizeBytes: input.file.size,
+      storageProvider: init.provider,
+      bucket: init.bucket,
+      objectKey: init.objectKey,
+      status: "pending",
+    });
+
+    return {
+      mediaId: created.id,
+      uploadId: init.uploadId,
+      objectKey: init.objectKey,
+      partSize: init.partSize,
+      partCount: init.partCount,
+    };
+  }
+
+  async uploadMultipartPart(input: UploadPartInput) {
+    const file = await this.repo.findMediaById(input.mediaId);
+    if (!file) {
+      throw new Error("media not found");
     }
 
-    return await db.transaction(async (tx) => {
-      const updated = [];
-      for (const m of found) {
-        // Verify the object actually landed in storage before marking ready.
-        const metadata = await this.fileService.getFileMetadata(m.objectKey);
-        const row = await this.repo.updateMedia(
-          m.id,
-          {
-            status: "ready",
-            sizeBytes: metadata.sizeBytes || m.sizeBytes,
-            mimeType: metadata.contentType ?? m.mimeType,
-          },
-          tx,
-        );
-        updated.push(row);
-      }
-      return updated;
+    // objectKey is taken from the DB, never trusted from the client.
+    const eTag = await this.fileService.uploadPart(
+      file.objectKey,
+      input.uploadId,
+      input.partNumber,
+      input.body,
+    );
+
+    return { partNumber: input.partNumber, eTag };
+  }
+
+  async completeMultipart(input: CompleteMultipartInput) {
+    const file = await this.repo.findMediaById(input.mediaId);
+    if (!file) {
+      throw new Error("media not found");
+    }
+
+    // objectKey is taken from the DB, never trusted from the client.
+    await this.fileService.completeMultipartUpload(
+      file.objectKey,
+      input.uploadId,
+      input.parts,
+    );
+
+    const metadata = await this.fileService.getFileMetadata(file.objectKey);
+    return await this.repo.updateMedia(file.id, {
+      status: "ready",
+      sizeBytes: metadata.sizeBytes || file.sizeBytes,
+      mimeType: metadata.contentType ?? file.mimeType,
     });
+  }
+
+  async abortMultipart(input: AbortMultipartInput) {
+    const file = await this.repo.findMediaById(input.mediaId);
+    if (!file) {
+      throw new Error("media not found");
+    }
+
+    await this.fileService.abortMultipartUpload(file.objectKey, input.uploadId);
+    await this.repo.softDeleteMedia(file.id);
+
+    return { success: true };
   }
 
   async browse(rawPath: string) {
@@ -201,10 +281,24 @@ export class MediaService {
     if (!file) {
       throw new Error("file not found");
     }
-    const downloadUrl = await this.fileService.generatePresignedDownloadUrl(
-      file.objectKey,
-    );
-    return { ...file, downloadUrl };
+    return file;
+  }
+
+  /** Stream a file's bytes through the server (no presigned URL). */
+  async downloadFile(id: string) {
+    const file = await this.repo.findMediaById(id);
+    if (!file) {
+      throw new Error("file not found");
+    }
+
+    const object = await this.fileService.getFileStream(file.objectKey);
+    return {
+      body: object.body,
+      contentType:
+        object.contentType ?? file.mimeType ?? "application/octet-stream",
+      fileName: file.originalName ?? file.name,
+      sizeBytes: object.sizeBytes ?? file.sizeBytes,
+    };
   }
 
   async updateFolder(id: string, input: UpdateFolderInput) {
