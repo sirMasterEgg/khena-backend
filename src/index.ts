@@ -1,5 +1,6 @@
 import { Elysia } from "elysia";
 import { syncPermissions } from "./auth/permission-sync";
+import { AuthRoute } from "./routes/auth.route";
 import { CategoryRoute } from "./routes/category.route";
 import { CollectionRoute } from "./routes/collection.route";
 import { ColorRoute } from "./routes/color.route";
@@ -21,6 +22,7 @@ const app = new Elysia({ prefix: "/api" })
     }
   })
   .get("/health", () => ({ status: "ok" }))
+  .use(AuthRoute)
   .use(ProductRoute)
   .use(MediaRoute)
   .use(RoomTypeRoute)
