@@ -1,4 +1,6 @@
 import { Elysia, t } from "elysia";
+import { authPlugin } from "../auth/auth.plugin";
+import { csrfPlugin } from "../auth/csrf.plugin";
 import type { RoomTypeService } from "../services/room-type.service";
 
 const createRoomTypeBody = t.Object({
@@ -14,6 +16,8 @@ const idParams = t.Object({ id: t.String({ minLength: 1 }) });
 
 export const RoomTypeController = (service: RoomTypeService) =>
   new Elysia({ prefix: "/room-types" })
+    .use(authPlugin)
+    .use(csrfPlugin)
     .post(
       "/",
       async ({ body, set }) => {
@@ -23,7 +27,11 @@ export const RoomTypeController = (service: RoomTypeService) =>
         set.status = 201;
         return { data };
       },
-      { body: createRoomTypeBody },
+      {
+        body: createRoomTypeBody,
+        requirePermission: "roomType.create",
+        csrf: true,
+      },
     )
     .get(
       "/",
@@ -40,5 +48,5 @@ export const RoomTypeController = (service: RoomTypeService) =>
         await service.deleteRoomType(params.id);
         return { data: "OK" };
       },
-      { params: idParams },
+      { params: idParams, requirePermission: "roomType.delete", csrf: true },
     );

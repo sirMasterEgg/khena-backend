@@ -1,4 +1,6 @@
 import { Elysia, t } from "elysia";
+import { authPlugin } from "../auth/auth.plugin";
+import { csrfPlugin } from "../auth/csrf.plugin";
 import type { CategoryService } from "../services/category.service";
 
 const categoryBody = t.Object({
@@ -22,6 +24,8 @@ const idParams = t.Object({ id: t.String({ minLength: 1 }) });
 
 export const CategoryController = (service: CategoryService) =>
   new Elysia({ prefix: "/categories" })
+    .use(authPlugin)
+    .use(csrfPlugin)
     .post(
       "/",
       async ({ body, set }) => {
@@ -34,7 +38,7 @@ export const CategoryController = (service: CategoryService) =>
         set.status = 201;
         return { data };
       },
-      { body: categoryBody },
+      { body: categoryBody, requirePermission: "category.create", csrf: true },
     )
     .get(
       "/",
@@ -64,7 +68,12 @@ export const CategoryController = (service: CategoryService) =>
         });
         return { data };
       },
-      { params: idParams, body: categoryBody },
+      {
+        params: idParams,
+        body: categoryBody,
+        requirePermission: "category.update",
+        csrf: true,
+      },
     )
     .delete(
       "/:id",
@@ -72,5 +81,5 @@ export const CategoryController = (service: CategoryService) =>
         await service.deleteCategory(params.id);
         return { data: "OK" };
       },
-      { params: idParams },
+      { params: idParams, requirePermission: "category.delete", csrf: true },
     );

@@ -1,4 +1,6 @@
 import { Elysia, t } from "elysia";
+import { authPlugin } from "../auth/auth.plugin";
+import { csrfPlugin } from "../auth/csrf.plugin";
 import type { ProductService } from "../services/product.service";
 
 const createProductBody = t.Object({
@@ -29,14 +31,19 @@ const createProductBody = t.Object({
 });
 
 export const ProductController = (service: ProductService) =>
-  new Elysia({ prefix: "/products" }).post(
-    "/",
-    async ({ body, set }) => {
-      await service.createProduct(body);
-      set.status = 201;
-      return { data: "OK" };
-    },
-    {
-      body: createProductBody,
-    },
-  );
+  new Elysia({ prefix: "/products" })
+    .use(authPlugin)
+    .use(csrfPlugin)
+    .post(
+      "/",
+      async ({ body, set }) => {
+        await service.createProduct(body);
+        set.status = 201;
+        return { data: "OK" };
+      },
+      {
+        body: createProductBody,
+        requirePermission: "product.create",
+        csrf: true,
+      },
+    );

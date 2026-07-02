@@ -1,6 +1,7 @@
 import { type Cookie, Elysia, t } from "elysia";
 import { extractBearerToken, verifyAccessToken } from "../auth/access-token";
 import { generateCsrfToken, verifyCsrfToken } from "../auth/csrf";
+import { csrfPlugin } from "../auth/csrf.plugin";
 import { issuePreSession, verifyPreSession } from "../auth/pre-session";
 import { authConfig } from "../config/auth.config";
 import type { AuthService } from "../services/auth.service";
@@ -51,6 +52,7 @@ function removePreSessionCookie(cookie: Cookies) {
 
 export const AuthController = (service: AuthService) =>
   new Elysia({ prefix: "/auth" })
+    .use(csrfPlugin)
     // Bootstrap CSRF token: anonim → diikat ke pre-session (stateless signed
     // cookie), sudah login → diikat ke sesi login.
     .get("/csrf", async ({ headers, cookie }) => {
@@ -133,27 +135,31 @@ export const AuthController = (service: AuthService) =>
       setCsrfCookie(cookie, result.csrfToken);
       return { data: { accessToken: result.accessToken } };
     })
-    .post("/logout", async ({ cookie }) => {
-      const refreshTokenRaw = cookieValue(cookie.refresh_token);
-      if (refreshTokenRaw) {
-        await service.logout(refreshTokenRaw);
-      }
+    .post(
+      "/logout",
+      async ({ cookie }) => {
+        const refreshTokenRaw = cookieValue(cookie.refresh_token);
+        if (refreshTokenRaw) {
+          await service.logout(refreshTokenRaw);
+        }
 
-      cookie.refresh_token?.set({
-        value: "",
-        httpOnly: true,
-        sameSite: "lax",
-        secure: authConfig.cookieSecure,
-        path: "/api/auth",
-        maxAge: 0,
-      });
-      cookie.csrf_token?.set({
-        value: "",
-        httpOnly: false,
-        sameSite: "lax",
-        secure: authConfig.cookieSecure,
-        path: "/",
-        maxAge: 0,
-      });
-      return { data: "OK" };
-    });
+        cookie.refresh_token?.set({
+          value: "",
+          httpOnly: true,
+          sameSite: "lax",
+          secure: authConfig.cookieSecure,
+          path: "/api/auth",
+          maxAge: 0,
+        });
+        cookie.csrf_token?.set({
+          value: "",
+          httpOnly: false,
+          sameSite: "lax",
+          secure: authConfig.cookieSecure,
+          path: "/",
+          maxAge: 0,
+        });
+        return { data: "OK" };
+      },
+      { csrf: true },
+    );

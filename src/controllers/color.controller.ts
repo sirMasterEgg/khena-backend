@@ -1,4 +1,6 @@
 import { Elysia, t } from "elysia";
+import { authPlugin } from "../auth/auth.plugin";
+import { csrfPlugin } from "../auth/csrf.plugin";
 import type { ColorService } from "../services/color.service";
 
 const colorBody = t.Object({
@@ -18,6 +20,8 @@ const idParams = t.Object({ id: t.String({ minLength: 1 }) });
 
 export const ColorController = (service: ColorService) =>
   new Elysia({ prefix: "/colors" })
+    .use(authPlugin)
+    .use(csrfPlugin)
     .post(
       "/",
       async ({ body, set }) => {
@@ -31,7 +35,7 @@ export const ColorController = (service: ColorService) =>
         set.status = 201;
         return { data };
       },
-      { body: colorBody },
+      { body: colorBody, requirePermission: "color.create", csrf: true },
     )
     .get(
       "/",
@@ -54,7 +58,12 @@ export const ColorController = (service: ColorService) =>
         });
         return { data };
       },
-      { params: idParams, body: colorBody },
+      {
+        params: idParams,
+        body: colorBody,
+        requirePermission: "color.update",
+        csrf: true,
+      },
     )
     .delete(
       "/:id",
@@ -62,5 +71,5 @@ export const ColorController = (service: ColorService) =>
         await service.deleteColor(params.id);
         return { data: "OK" };
       },
-      { params: idParams },
+      { params: idParams, requirePermission: "color.delete", csrf: true },
     );

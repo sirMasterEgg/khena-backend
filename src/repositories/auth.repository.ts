@@ -1,13 +1,13 @@
 import { eq } from "drizzle-orm";
 import {
+  type Administrator,
+  administrators,
+} from "../models/administrator.model";
+import {
   type AdministratorSession,
   administratorSessions,
   type NewAdministratorSession,
 } from "../models/administrator-session.model";
-import {
-  type Administrator,
-  administrators,
-} from "../models/administrator.model";
 import { permissions } from "../models/permission.model";
 import { rolePermissions } from "../models/role-permission.model";
 import { db } from "../utils/db";
@@ -58,9 +58,7 @@ export class AuthRepository {
     return result[0];
   }
 
-  async findSessionById(
-    id: string,
-  ): Promise<AdministratorSession | undefined> {
+  async findSessionById(id: string): Promise<AdministratorSession | undefined> {
     const result = await db
       .select()
       .from(administratorSessions)
