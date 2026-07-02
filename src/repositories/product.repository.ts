@@ -5,6 +5,7 @@ import {
   type NewProductCareInstruction,
   productCareInstructions,
 } from "../models/care-instruction.model";
+import { categories } from "../models/category.model";
 import {
   collections,
   type NewProductCollection,
@@ -46,6 +47,15 @@ export class ProductRepository {
       .select()
       .from(collections)
       .where(eq(collections.id, id))
+      .limit(1);
+    return result[0];
+  }
+
+  async findCategoryById(id: string) {
+    const result = await db
+      .select()
+      .from(categories)
+      .where(eq(categories.id, id))
       .limit(1);
     return result[0];
   }

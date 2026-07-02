@@ -16,6 +16,7 @@ interface CreateProductInput {
   productName: string;
   sku: string;
   collectionId: string;
+  categoryId: string;
   description: string;
   material: string;
   careInstructions: string[];
@@ -40,6 +41,12 @@ export class ProductService {
     const collection = await this.repo.findCollectionById(input.collectionId);
     if (!collection) {
       throw new Error("collection not found");
+    }
+
+    // Check category exists
+    const category = await this.repo.findCategoryById(input.categoryId);
+    if (!category) {
+      throw new Error("category not found");
     }
 
     // Check all colors exist
@@ -87,6 +94,7 @@ export class ProductService {
         {
           name: input.productName,
           baseSku: input.sku,
+          categoryId: input.categoryId,
           description: input.description,
           materials: input.material,
           productDimensionMediaId: getMediaId(input.productDimension),

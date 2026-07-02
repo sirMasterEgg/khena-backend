@@ -5,6 +5,7 @@ const createProductBody = t.Object({
   productName: t.String({ minLength: 1 }),
   sku: t.String({ minLength: 1 }),
   collectionId: t.String({ minLength: 1 }),
+  categoryId: t.String({ minLength: 1 }),
   description: t.String({ minLength: 1 }),
   material: t.String({ minLength: 1 }),
   careInstructions: t.Array(t.String(), { minItems: 1 }),
