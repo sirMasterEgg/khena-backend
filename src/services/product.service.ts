@@ -1,5 +1,6 @@
 import type { ProductRepository } from "../repositories/product.repository";
 import { db } from "../utils/db";
+import { ConflictError, NotFoundError } from "../utils/errors";
 
 interface CreateProductVariant {
   colorId: string;
@@ -34,19 +35,19 @@ export class ProductService {
     // Check for duplicate SKU
     const existingProduct = await this.repo.findByBaseSku(input.sku);
     if (existingProduct) {
-      throw new Error("sku already exists");
+      throw new ConflictError("sku already exists");
     }
 
     // Check collection exists
     const collection = await this.repo.findCollectionById(input.collectionId);
     if (!collection) {
-      throw new Error("collection not found");
+      throw new NotFoundError("collection not found");
     }
 
     // Check category exists
     const category = await this.repo.findCategoryById(input.categoryId);
     if (!category) {
-      throw new Error("category not found");
+      throw new NotFoundError("category not found");
     }
 
     // Check all colors exist
@@ -56,7 +57,7 @@ export class ProductService {
 
     for (const colorId of colorIds) {
       if (!foundColorIds.has(colorId)) {
-        throw new Error(`color ${colorId} not found`);
+        throw new NotFoundError(`color ${colorId} not found`);
       }
     }
 
@@ -77,7 +78,7 @@ export class ProductService {
     const getMediaId = (objectKey: string) => {
       const mediaId = objectKeyToMediaId.get(objectKey);
       if (mediaId === undefined) {
-        throw new Error(`media ${objectKey} not found`);
+        throw new NotFoundError(`media ${objectKey} not found`);
       }
       return mediaId;
     };

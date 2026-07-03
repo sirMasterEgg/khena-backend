@@ -9,6 +9,7 @@ import {
   S3Client,
   UploadPartCommand,
 } from "@aws-sdk/client-s3";
+import { NotFoundError } from "../../utils/errors";
 import type {
   CompletedPart,
   PutObjectParams,
@@ -65,7 +66,7 @@ export class S3StorageStrategy implements StorageStrategy {
     );
 
     if (!response.Body) {
-      throw new Error("object not found");
+      throw new NotFoundError("object not found");
     }
 
     return {

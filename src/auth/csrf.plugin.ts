@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { errorBody } from "../utils/errors";
 import { extractBearerToken, verifyAccessToken } from "./access-token";
 import { verifyCsrfToken } from "./csrf";
 
@@ -22,7 +23,7 @@ export const csrfPlugin = new Elysia({ name: "csrf" }).macro({
         const headerToken = headers["x-csrf-token"];
         const cookieToken = cookie.csrf_token?.value;
         if (!headerToken || !cookieToken || headerToken !== cookieToken) {
-          return status(403, "invalid csrf token");
+          return status(403, errorBody("FORBIDDEN", "invalid csrf token"));
         }
 
         // sessionId diambil dari konteks sesi (access token), bukan dari token.
@@ -30,7 +31,7 @@ export const csrfPlugin = new Elysia({ name: "csrf" }).macro({
           extractBearerToken(headers.authorization),
         );
         if (!payload || !verifyCsrfToken(headerToken, payload.sessionId)) {
-          return status(403, "invalid csrf token");
+          return status(403, errorBody("FORBIDDEN", "invalid csrf token"));
         }
       },
     };

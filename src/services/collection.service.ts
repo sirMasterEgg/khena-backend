@@ -1,5 +1,6 @@
 import type { CollectionRepository } from "../repositories/collection.repository";
 import { db } from "../utils/db";
+import { ConflictError, NotFoundError } from "../utils/errors";
 
 type CollectionSort = "name" | "slug" | "created_at";
 
@@ -37,10 +38,10 @@ export class CollectionService {
     const found = await this.repo.findMediaByIds(ids);
     const foundIds = new Set(found.map((m) => m.id));
     if (!foundIds.has(coverId)) {
-      throw new Error("cover media not found");
+      throw new NotFoundError("cover media not found");
     }
     if (!foundIds.has(heroId)) {
-      throw new Error("hero media not found");
+      throw new NotFoundError("hero media not found");
     }
   }
 
@@ -52,7 +53,7 @@ export class CollectionService {
     const foundIds = new Set(found.map((p) => p.id));
     for (const id of productIds) {
       if (!foundIds.has(id)) {
-        throw new Error(`product ${id} not found`);
+        throw new NotFoundError(`product ${id} not found`);
       }
     }
   }
@@ -60,7 +61,7 @@ export class CollectionService {
   async createCollection(input: CreateCollectionInput) {
     const existingSlug = await this.repo.findBySlug(input.slug);
     if (existingSlug) {
-      throw new Error("slug already exists");
+      throw new ConflictError("slug already exists");
     }
     await this.validateMedia(input.coverId, input.heroId);
     await this.validateProductIds(input.productIds);
@@ -113,11 +114,11 @@ export class CollectionService {
   async updateCollection(id: string, input: UpdateCollectionInput) {
     const existing = await this.repo.findById(id);
     if (!existing) {
-      throw new Error("collection not found");
+      throw new NotFoundError("collection not found");
     }
     const slugOwner = await this.repo.findBySlug(input.slug);
     if (slugOwner && slugOwner.id !== id) {
-      throw new Error("slug already exists");
+      throw new ConflictError("slug already exists");
     }
     await this.validateMedia(input.coverId, input.heroId);
     await this.validateProductIds(input.productIds);
@@ -150,7 +151,7 @@ export class CollectionService {
   async deleteCollection(id: string) {
     const existing = await this.repo.findById(id);
     if (!existing) {
-      throw new Error("collection not found");
+      throw new NotFoundError("collection not found");
     }
     await db.transaction(async (tx) => {
       await this.repo.softDeleteProductCollectionsByCollectionId(id, tx);

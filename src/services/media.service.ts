@@ -1,5 +1,6 @@
 import type { MediaRepository } from "../repositories/media.repository";
 import { db } from "../utils/db";
+import { BadRequestError, ConflictError, NotFoundError } from "../utils/errors";
 import {
   isRootPath,
   joinPath,
@@ -102,7 +103,7 @@ export class MediaService {
     }
     const folder = await this.repo.findFolderByPath(normalizePath(path));
     if (!folder) {
-      throw new Error("folder not found");
+      throw new NotFoundError("folder not found");
     }
     return folder.id;
   }
@@ -114,7 +115,7 @@ export class MediaService {
     if (!isRootPath(parentPath)) {
       const parent = await this.repo.findFolderByPath(parentPath);
       if (!parent) {
-        throw new Error("parent folder not found");
+        throw new NotFoundError("parent folder not found");
       }
       parentId = parent.id;
     }
@@ -123,7 +124,7 @@ export class MediaService {
 
     const existing = await this.repo.findFolderByPath(newPath);
     if (existing) {
-      throw new Error("folder already exists");
+      throw new ConflictError("folder already exists");
     }
 
     return await this.repo.createFolder({
@@ -209,7 +210,7 @@ export class MediaService {
   async uploadMultipartPart(input: UploadPartInput) {
     const file = await this.repo.findMediaById(input.mediaId);
     if (!file) {
-      throw new Error("media not found");
+      throw new NotFoundError("media not found");
     }
 
     // objectKey is taken from the DB, never trusted from the client.
@@ -226,7 +227,7 @@ export class MediaService {
   async completeMultipart(input: CompleteMultipartInput) {
     const file = await this.repo.findMediaById(input.mediaId);
     if (!file) {
-      throw new Error("media not found");
+      throw new NotFoundError("media not found");
     }
 
     // objectKey is taken from the DB, never trusted from the client.
@@ -247,7 +248,7 @@ export class MediaService {
   async abortMultipart(input: AbortMultipartInput) {
     const file = await this.repo.findMediaById(input.mediaId);
     if (!file) {
-      throw new Error("media not found");
+      throw new NotFoundError("media not found");
     }
 
     await this.fileService.abortMultipartUpload(file.objectKey, input.uploadId);
@@ -263,7 +264,7 @@ export class MediaService {
     if (!isRootPath(path)) {
       const folder = await this.repo.findFolderByPath(path);
       if (!folder) {
-        throw new Error("folder not found");
+        throw new NotFoundError("folder not found");
       }
       folderId = folder.id;
     }
@@ -279,7 +280,7 @@ export class MediaService {
   async getFile(id: string) {
     const file = await this.repo.findMediaById(id);
     if (!file) {
-      throw new Error("file not found");
+      throw new NotFoundError("file not found");
     }
     return file;
   }
@@ -288,7 +289,7 @@ export class MediaService {
   async downloadFile(id: string) {
     const file = await this.repo.findMediaById(id);
     if (!file) {
-      throw new Error("file not found");
+      throw new NotFoundError("file not found");
     }
 
     const object = await this.fileService.getFileStream(file.objectKey);
@@ -305,7 +306,7 @@ export class MediaService {
     return await db.transaction(async (tx) => {
       const folder = await this.repo.findFolderById(id);
       if (!folder) {
-        throw new Error("folder not found");
+        throw new NotFoundError("folder not found");
       }
 
       const parentPath = normalizePath(input.path);
@@ -313,10 +314,10 @@ export class MediaService {
       if (!isRootPath(parentPath)) {
         const parent = await this.repo.findFolderByPath(parentPath);
         if (!parent) {
-          throw new Error("parent folder not found");
+          throw new NotFoundError("parent folder not found");
         }
         if (parent.id === folder.id) {
-          throw new Error("folder cannot be its own parent");
+          throw new BadRequestError("folder cannot be its own parent");
         }
         parentId = parent.id;
       }
@@ -327,7 +328,7 @@ export class MediaService {
       if (newPath !== oldPath) {
         const existing = await this.repo.findFolderByPath(newPath);
         if (existing) {
-          throw new Error("folder already exists");
+          throw new ConflictError("folder already exists");
         }
       }
 
@@ -357,7 +358,7 @@ export class MediaService {
   async updateFile(id: string, input: UpdateFileInput) {
     const file = await this.repo.findMediaById(id);
     if (!file) {
-      throw new Error("file not found");
+      throw new NotFoundError("file not found");
     }
 
     const folderId = await this.resolveFolderId(input.path);
@@ -377,7 +378,7 @@ export class MediaService {
     return await db.transaction(async (tx) => {
       const folder = await this.repo.findFolderById(id);
       if (!folder) {
-        throw new Error("folder not found");
+        throw new NotFoundError("folder not found");
       }
 
       // Cascade: target folder + all descendants, plus media inside them.
@@ -394,7 +395,7 @@ export class MediaService {
   async deleteFile(id: string) {
     const file = await this.repo.findMediaById(id);
     if (!file) {
-      throw new Error("file not found");
+      throw new NotFoundError("file not found");
     }
 
     await this.repo.softDeleteMedia(file.id);

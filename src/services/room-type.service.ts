@@ -1,4 +1,5 @@
 import type { RoomTypeRepository } from "../repositories/room-type.repository";
+import { NotFoundError } from "../utils/errors";
 
 interface CreateRoomTypeInput {
   roomType: string;
@@ -29,7 +30,7 @@ export class RoomTypeService {
   async deleteRoomType(id: string) {
     const existing = await this.repo.findById(id);
     if (!existing) {
-      throw new Error("room type not found");
+      throw new NotFoundError("room type not found");
     }
     await this.repo.softDelete(id);
   }

@@ -1,3 +1,4 @@
+import { BadRequestError } from "../utils/errors";
 import { createStorageStrategy } from "./storage/storage.factory";
 import type {
   CompletedPart,
@@ -81,7 +82,9 @@ export class FileService {
     const objectKey = generateObjectKey(input.fileName, input.folderPrefix);
     const partCount = Math.ceil(input.sizeBytes / PART_SIZE);
     if (partCount < 1 || partCount > MAX_PARTS) {
-      throw new Error("file too large or invalid size for multipart upload");
+      throw new BadRequestError(
+        "file too large or invalid size for multipart upload",
+      );
     }
 
     const uploadId = await this.storage.createMultipartUpload(
