@@ -1,4 +1,6 @@
 import { Elysia, t } from "elysia";
+import { authPlugin } from "../auth/auth.plugin";
+import { csrfPlugin } from "../auth/csrf.plugin";
 import type { CollectionService } from "../services/collection.service";
 
 const collectionBody = t.Object({
@@ -28,6 +30,8 @@ const idParams = t.Object({ id: t.String({ minLength: 1 }) });
 
 export const CollectionController = (service: CollectionService) =>
   new Elysia({ prefix: "/collections" })
+    .use(authPlugin)
+    .use(csrfPlugin)
     .post(
       "/",
       async ({ body, set }) => {
@@ -42,7 +46,11 @@ export const CollectionController = (service: CollectionService) =>
         set.status = 201;
         return { data };
       },
-      { body: collectionBody },
+      {
+        body: collectionBody,
+        requirePermission: "collection.create",
+        csrf: true,
+      },
     )
     .get(
       "/",
@@ -73,7 +81,12 @@ export const CollectionController = (service: CollectionService) =>
         });
         return { data };
       },
-      { params: idParams, body: collectionBody },
+      {
+        params: idParams,
+        body: collectionBody,
+        requirePermission: "collection.update",
+        csrf: true,
+      },
     )
     .delete(
       "/:id",
@@ -81,5 +94,5 @@ export const CollectionController = (service: CollectionService) =>
         await service.deleteCollection(params.id);
         return { data: "OK" };
       },
-      { params: idParams },
+      { params: idParams, requirePermission: "collection.delete", csrf: true },
     );

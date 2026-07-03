@@ -1,4 +1,6 @@
 import { Elysia, t } from "elysia";
+import { authPlugin } from "../auth/auth.plugin";
+import { csrfPlugin } from "../auth/csrf.plugin";
 import type { FinishService } from "../services/finish.service";
 
 const createFinishBody = t.Object({
@@ -14,6 +16,8 @@ const idParams = t.Object({ id: t.String({ minLength: 1 }) });
 
 export const FinishController = (service: FinishService) =>
   new Elysia({ prefix: "/finishes" })
+    .use(authPlugin)
+    .use(csrfPlugin)
     .post(
       "/",
       async ({ body, set }) => {
@@ -23,7 +27,11 @@ export const FinishController = (service: FinishService) =>
         set.status = 201;
         return { data };
       },
-      { body: createFinishBody },
+      {
+        body: createFinishBody,
+        requirePermission: "finish.create",
+        csrf: true,
+      },
     )
     .get(
       "/",
@@ -40,5 +48,5 @@ export const FinishController = (service: FinishService) =>
         await service.deleteFinish(params.id);
         return { data: "OK" };
       },
-      { params: idParams },
+      { params: idParams, requirePermission: "finish.delete", csrf: true },
     );

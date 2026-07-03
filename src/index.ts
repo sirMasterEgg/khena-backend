@@ -1,4 +1,6 @@
 import { Elysia } from "elysia";
+import { syncPermissions } from "./auth/permission-sync";
+import { AuthRoute } from "./routes/auth.route";
 import { CategoryRoute } from "./routes/category.route";
 import { CollectionRoute } from "./routes/collection.route";
 import { ColorRoute } from "./routes/color.route";
@@ -9,6 +11,9 @@ import { RoomTypeRoute } from "./routes/room-type.route";
 
 const port = process.env.PORT ? Number(process.env.PORT) : 3000;
 
+// Generate & sinkron permission dari Module Registry sebelum server listen.
+await syncPermissions();
+
 const app = new Elysia({ prefix: "/api" })
   .onError(({ code, error, set }) => {
     if (code === "UNKNOWN" && error instanceof Error) {
@@ -17,6 +22,7 @@ const app = new Elysia({ prefix: "/api" })
     }
   })
   .get("/health", () => ({ status: "ok" }))
+  .use(AuthRoute)
   .use(ProductRoute)
   .use(MediaRoute)
   .use(RoomTypeRoute)

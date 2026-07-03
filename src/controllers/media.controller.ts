@@ -1,4 +1,6 @@
 import { Elysia, t } from "elysia";
+import { authPlugin } from "../auth/auth.plugin";
+import { csrfPlugin } from "../auth/csrf.plugin";
 import type { MediaService } from "../services/media.service";
 
 const folderBody = t.Object({
@@ -55,6 +57,8 @@ const idParams = t.Object({ id: t.String({ minLength: 1 }) });
 
 export const MediaController = (service: MediaService) =>
   new Elysia({ prefix: "/media" })
+    .use(authPlugin)
+    .use(csrfPlugin)
     // --- specific routes first (must come before the catch-all GET /*) ---
     .post(
       "/folder",
@@ -63,7 +67,7 @@ export const MediaController = (service: MediaService) =>
         set.status = 201;
         return { data: folder };
       },
-      { body: folderBody },
+      { body: folderBody, requirePermission: "media.create", csrf: true },
     )
     .post(
       "/upload-direct",
@@ -83,7 +87,11 @@ export const MediaController = (service: MediaService) =>
         set.status = 201;
         return { data: result };
       },
-      { body: uploadDirectBody },
+      {
+        body: uploadDirectBody,
+        requirePermission: "media.create",
+        csrf: true,
+      },
     )
     .post(
       "/upload-multipart/init",
@@ -92,7 +100,11 @@ export const MediaController = (service: MediaService) =>
         set.status = 201;
         return { data: result };
       },
-      { body: multipartInitBody },
+      {
+        body: multipartInitBody,
+        requirePermission: "media.create",
+        csrf: true,
+      },
     )
     .post(
       "/upload-multipart/part",
@@ -105,7 +117,11 @@ export const MediaController = (service: MediaService) =>
         });
         return { data: result };
       },
-      { body: multipartPartBody },
+      {
+        body: multipartPartBody,
+        requirePermission: "media.create",
+        csrf: true,
+      },
     )
     .post(
       "/upload-multipart/complete",
@@ -113,7 +129,11 @@ export const MediaController = (service: MediaService) =>
         const result = await service.completeMultipart(body);
         return { data: result };
       },
-      { body: multipartCompleteBody },
+      {
+        body: multipartCompleteBody,
+        requirePermission: "media.create",
+        csrf: true,
+      },
     )
     .post(
       "/upload-multipart/abort",
@@ -121,7 +141,11 @@ export const MediaController = (service: MediaService) =>
         const result = await service.abortMultipart(body);
         return { data: result };
       },
-      { body: multipartAbortBody },
+      {
+        body: multipartAbortBody,
+        requirePermission: "media.create",
+        csrf: true,
+      },
     )
     .get(
       "/files/:id",
@@ -150,7 +174,12 @@ export const MediaController = (service: MediaService) =>
         const file = await service.updateFile(params.id, body);
         return { data: file };
       },
-      { params: idParams, body: updateFileBody },
+      {
+        params: idParams,
+        body: updateFileBody,
+        requirePermission: "media.update",
+        csrf: true,
+      },
     )
     .delete(
       "/files/:id",
@@ -158,7 +187,7 @@ export const MediaController = (service: MediaService) =>
         await service.deleteFile(params.id);
         return { data: "OK" };
       },
-      { params: idParams },
+      { params: idParams, requirePermission: "media.delete", csrf: true },
     )
     .put(
       "/folder/:id",
@@ -166,7 +195,12 @@ export const MediaController = (service: MediaService) =>
         const folder = await service.updateFolder(params.id, body);
         return { data: folder };
       },
-      { params: idParams, body: folderBody },
+      {
+        params: idParams,
+        body: folderBody,
+        requirePermission: "media.update",
+        csrf: true,
+      },
     )
     .delete(
       "/folder/:id",
@@ -174,7 +208,7 @@ export const MediaController = (service: MediaService) =>
         await service.deleteFolder(params.id);
         return { data: "OK" };
       },
-      { params: idParams },
+      { params: idParams, requirePermission: "media.delete", csrf: true },
     )
     // --- browse: catch-all path, registered last ---
     .get("/", async () => {
