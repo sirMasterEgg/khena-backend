@@ -3,6 +3,7 @@ import { generateCsrfToken } from "../auth/csrf";
 import { generateRefreshToken, hashToken } from "../auth/refresh-token";
 import { authConfig } from "../config/auth.config";
 import type { AuthRepository } from "../repositories/auth.repository";
+import { BadRequestError } from "../utils/errors";
 
 interface LoginInput {
   email: string;
@@ -37,12 +38,12 @@ export class AuthService {
   async login(input: LoginInput) {
     const admin = await this.repo.findAdministratorByEmail(input.email);
     if (!admin) {
-      throw new Error("invalid credentials");
+      throw new BadRequestError("invalid credentials");
     }
     const valid = await Bun.password.verify(input.password, admin.password);
     if (!valid) {
       // Pesan generic yang sama untuk mencegah user enumeration.
-      throw new Error("invalid credentials");
+      throw new BadRequestError("invalid credentials");
     }
 
     const issued = await this.issueSession(admin.id, input.deviceInfo);
@@ -54,7 +55,7 @@ export class AuthService {
       hashToken(refreshTokenRaw),
     );
     if (!session || session.revoked || session.expiredAt <= new Date()) {
-      throw new Error("invalid refresh token");
+      throw new BadRequestError("invalid refresh token");
     }
 
     // Rotasi: refresh token lama langsung tidak berlaku (mencegah replay).

@@ -1,4 +1,5 @@
 import type { ColorRepository } from "../repositories/color.repository";
+import { NotFoundError } from "../utils/errors";
 
 interface CreateColorInput {
   color: string;
@@ -21,7 +22,7 @@ export class ColorService {
   private async validateFinish(finishId: string) {
     const finish = await this.repo.findFinishById(finishId);
     if (!finish) {
-      throw new Error("finish not found");
+      throw new NotFoundError("finish not found");
     }
   }
 
@@ -31,7 +32,7 @@ export class ColorService {
     }
     const found = await this.repo.findMediaById(swatchImage);
     if (!found) {
-      throw new Error("swatch media not found");
+      throw new NotFoundError("swatch media not found");
     }
   }
 
@@ -61,7 +62,7 @@ export class ColorService {
   async updateColor(id: string, input: UpdateColorInput) {
     const existing = await this.repo.findById(id);
     if (!existing) {
-      throw new Error("color not found");
+      throw new NotFoundError("color not found");
     }
     await this.validateFinish(input.finishId);
     await this.validateSwatch(input.swatchImage);
@@ -78,7 +79,7 @@ export class ColorService {
   async deleteColor(id: string) {
     const existing = await this.repo.findById(id);
     if (!existing) {
-      throw new Error("color not found");
+      throw new NotFoundError("color not found");
     }
     await this.repo.softDelete(id);
   }

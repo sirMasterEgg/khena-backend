@@ -5,6 +5,7 @@ import { csrfPlugin } from "../auth/csrf.plugin";
 import { issuePreSession, verifyPreSession } from "../auth/pre-session";
 import { authConfig } from "../config/auth.config";
 import type { AuthService } from "../services/auth.service";
+import { errorBody } from "../utils/errors";
 
 const loginBody = t.Object({
   email: t.String({ format: "email" }),
@@ -96,7 +97,7 @@ export const AuthController = (service: AuthService) =>
           headerToken !== cookieToken ||
           !verifyCsrfToken(headerToken, preSessionId)
         ) {
-          return status(403, "invalid csrf token");
+          return status(403, errorBody("FORBIDDEN", "invalid csrf token"));
         }
 
         const result = await service.login({
@@ -127,7 +128,7 @@ export const AuthController = (service: AuthService) =>
     .post("/refresh", async ({ cookie, status }) => {
       const refreshTokenRaw = cookieValue(cookie.refresh_token);
       if (!refreshTokenRaw) {
-        return status(401, "missing refresh token");
+        return status(401, errorBody("UNAUTHORIZED", "missing refresh token"));
       }
 
       const result = await service.refresh(refreshTokenRaw);
