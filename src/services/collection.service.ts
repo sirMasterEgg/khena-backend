@@ -2,9 +2,9 @@ import type { CollectionRepository } from "../repositories/collection.repository
 import { db } from "../utils/db";
 import { ConflictError, NotFoundError } from "../utils/errors";
 
-type CollectionSort = "name" | "slug" | "created_at";
+type CollectionSort = "name" | "slug" | "createdAt";
 
-const allowedSorts: CollectionSort[] = ["name", "slug", "created_at"];
+const allowedSorts: CollectionSort[] = ["name", "slug", "createdAt"];
 
 interface CreateCollectionInput {
   name: string;
@@ -92,7 +92,7 @@ export class CollectionService {
   async listCollections(input: ListCollectionsInput) {
     const sort = allowedSorts.includes(input.sort as CollectionSort)
       ? (input.sort as CollectionSort)
-      : "created_at";
+      : "createdAt";
     const orderDir = input.orderDir === "asc" ? "asc" : "desc";
     const { page, limit } = input;
 

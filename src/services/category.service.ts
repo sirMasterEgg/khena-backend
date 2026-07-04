@@ -2,9 +2,9 @@ import type { CategoryRepository } from "../repositories/category.repository";
 import type { RoomTypeRepository } from "../repositories/room-type.repository";
 import { NotFoundError } from "../utils/errors";
 
-type CategorySort = "order" | "category" | "created_at";
+type CategorySort = "order" | "category" | "createdAt";
 
-const allowedSorts: CategorySort[] = ["order", "category", "created_at"];
+const allowedSorts: CategorySort[] = ["order", "category", "createdAt"];
 
 interface CreateCategoryInput {
   roomTypeId: string;
@@ -47,7 +47,7 @@ export class CategoryService {
   async listCategories(input: ListCategoriesInput) {
     const sort = allowedSorts.includes(input.sort as CategorySort)
       ? (input.sort as CategorySort)
-      : "created_at";
+      : "createdAt";
     const orderDir = input.orderDir === "asc" ? "asc" : "desc";
     const { page, limit } = input;
 

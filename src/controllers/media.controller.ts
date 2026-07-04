@@ -1,7 +1,43 @@
 import { Elysia, t } from "elysia";
 import { authPlugin } from "../auth/auth.plugin";
 import { csrfPlugin } from "../auth/csrf.plugin";
+import {
+  dataEnvelope,
+  errorResponses,
+  publicErrorResponses,
+} from "../models/api-schema";
+import { folderModel, mediaModel } from "../models/response.model";
 import type { MediaService } from "../services/media.service";
+
+// --- Response models untuk bentuk data khusus (bukan entitas DB langsung) ---
+const uploadDirectResult = t.Array(
+  t.Object({
+    mediaId: t.String(),
+    fileName: t.String(),
+    objectKey: t.String(),
+  }),
+);
+
+const multipartInitResult = t.Object({
+  mediaId: t.String(),
+  uploadId: t.String(),
+  objectKey: t.String(),
+  partSize: t.Number(),
+  partCount: t.Number(),
+});
+
+const multipartPartResult = t.Object({
+  partNumber: t.Number(),
+  eTag: t.String(),
+});
+
+const successResult = t.Object({ success: t.Boolean() });
+
+const browseResult = t.Object({
+  path: t.String(),
+  folders: t.Array(folderModel),
+  files: t.Array(mediaModel),
+});
 
 const folderBody = t.Object({
   path: t.String(),
@@ -67,7 +103,12 @@ export const MediaController = (service: MediaService) =>
         set.status = 201;
         return { data: folder };
       },
-      { body: folderBody, requirePermission: "media.create", csrf: true },
+      {
+        body: folderBody,
+        requirePermission: "media.create",
+        csrf: true,
+        response: { 201: dataEnvelope(folderModel), ...errorResponses },
+      },
     )
     .post(
       "/upload-direct",
@@ -91,6 +132,7 @@ export const MediaController = (service: MediaService) =>
         body: uploadDirectBody,
         requirePermission: "media.create",
         csrf: true,
+        response: { 201: dataEnvelope(uploadDirectResult), ...errorResponses },
       },
     )
     .post(
@@ -104,6 +146,10 @@ export const MediaController = (service: MediaService) =>
         body: multipartInitBody,
         requirePermission: "media.create",
         csrf: true,
+        response: {
+          201: dataEnvelope(multipartInitResult),
+          ...errorResponses,
+        },
       },
     )
     .post(
@@ -121,6 +167,10 @@ export const MediaController = (service: MediaService) =>
         body: multipartPartBody,
         requirePermission: "media.create",
         csrf: true,
+        response: {
+          200: dataEnvelope(multipartPartResult),
+          ...errorResponses,
+        },
       },
     )
     .post(
@@ -133,6 +183,7 @@ export const MediaController = (service: MediaService) =>
         body: multipartCompleteBody,
         requirePermission: "media.create",
         csrf: true,
+        response: { 200: dataEnvelope(mediaModel), ...errorResponses },
       },
     )
     .post(
@@ -145,6 +196,7 @@ export const MediaController = (service: MediaService) =>
         body: multipartAbortBody,
         requirePermission: "media.create",
         csrf: true,
+        response: { 200: dataEnvelope(successResult), ...errorResponses },
       },
     )
     .get(
@@ -153,8 +205,12 @@ export const MediaController = (service: MediaService) =>
         const file = await service.getFile(params.id);
         return { data: file };
       },
-      { params: idParams },
+      {
+        params: idParams,
+        response: { 200: dataEnvelope(mediaModel), ...publicErrorResponses },
+      },
     )
+    // Response biner (bukan JSON) → tidak dipasang skema response.
     .get(
       "/files/:id/download",
       async ({ params }) => {
@@ -179,6 +235,7 @@ export const MediaController = (service: MediaService) =>
         body: updateFileBody,
         requirePermission: "media.update",
         csrf: true,
+        response: { 200: dataEnvelope(mediaModel), ...errorResponses },
       },
     )
     .delete(
@@ -187,7 +244,12 @@ export const MediaController = (service: MediaService) =>
         await service.deleteFile(params.id);
         return { data: "OK" };
       },
-      { params: idParams, requirePermission: "media.delete", csrf: true },
+      {
+        params: idParams,
+        requirePermission: "media.delete",
+        csrf: true,
+        response: { 200: dataEnvelope(t.Literal("OK")), ...errorResponses },
+      },
     )
     .put(
       "/folder/:id",
@@ -200,6 +262,7 @@ export const MediaController = (service: MediaService) =>
         body: folderBody,
         requirePermission: "media.update",
         csrf: true,
+        response: { 200: dataEnvelope(folderModel), ...errorResponses },
       },
     )
     .delete(
@@ -208,15 +271,32 @@ export const MediaController = (service: MediaService) =>
         await service.deleteFolder(params.id);
         return { data: "OK" };
       },
-      { params: idParams, requirePermission: "media.delete", csrf: true },
+      {
+        params: idParams,
+        requirePermission: "media.delete",
+        csrf: true,
+        response: { 200: dataEnvelope(t.Literal("OK")), ...errorResponses },
+      },
     )
     // --- browse: catch-all path, registered last ---
-    .get("/", async () => {
-      const result = await service.browse("/");
-      return { data: result };
-    })
-    .get("/*", async ({ params }) => {
-      const wildcard = (params as Record<string, string>)["*"] ?? "";
-      const result = await service.browse(wildcard);
-      return { data: result };
-    });
+    .get(
+      "/",
+      async () => {
+        const result = await service.browse("/");
+        return { data: result };
+      },
+      {
+        response: { 200: dataEnvelope(browseResult), ...publicErrorResponses },
+      },
+    )
+    .get(
+      "/*",
+      async ({ params }) => {
+        const wildcard = (params as Record<string, string>)["*"] ?? "";
+        const result = await service.browse(wildcard);
+        return { data: result };
+      },
+      {
+        response: { 200: dataEnvelope(browseResult), ...publicErrorResponses },
+      },
+    );

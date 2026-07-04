@@ -1,10 +1,17 @@
 import { Elysia, t } from "elysia";
 import { authPlugin } from "../auth/auth.plugin";
 import { csrfPlugin } from "../auth/csrf.plugin";
+import {
+  dataEnvelope,
+  errorResponses,
+  listEnvelope,
+  publicErrorResponses,
+} from "../models/api-schema";
+import { roomTypeModel } from "../models/response.model";
 import type { RoomTypeService } from "../services/room-type.service";
 
 const createRoomTypeBody = t.Object({
-  room_type: t.String({ minLength: 1 }),
+  roomType: t.String({ minLength: 1 }),
 });
 
 const listQuery = t.Object({
@@ -21,9 +28,7 @@ export const RoomTypeController = (service: RoomTypeService) =>
     .post(
       "/",
       async ({ body, set }) => {
-        const data = await service.createRoomType({
-          roomType: body.room_type,
-        });
+        const data = await service.createRoomType(body);
         set.status = 201;
         return { data };
       },
@@ -31,6 +36,7 @@ export const RoomTypeController = (service: RoomTypeService) =>
         body: createRoomTypeBody,
         requirePermission: "roomType.create",
         csrf: true,
+        response: { 201: dataEnvelope(roomTypeModel), ...errorResponses },
       },
     )
     .get(
@@ -40,7 +46,13 @@ export const RoomTypeController = (service: RoomTypeService) =>
         const limit = query.limit ?? 10;
         return await service.listRoomTypes({ page, limit });
       },
-      { query: listQuery },
+      {
+        query: listQuery,
+        response: {
+          200: listEnvelope(roomTypeModel),
+          ...publicErrorResponses,
+        },
+      },
     )
     .delete(
       "/:id",
@@ -48,5 +60,10 @@ export const RoomTypeController = (service: RoomTypeService) =>
         await service.deleteRoomType(params.id);
         return { data: "OK" };
       },
-      { params: idParams, requirePermission: "roomType.delete", csrf: true },
+      {
+        params: idParams,
+        requirePermission: "roomType.delete",
+        csrf: true,
+        response: { 200: dataEnvelope(t.Literal("OK")), ...errorResponses },
+      },
     );

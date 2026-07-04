@@ -22,7 +22,7 @@ import { db, type Tx } from "../utils/db";
 
 type DbOrTx = typeof db | Tx;
 
-type CollectionSort = "name" | "slug" | "created_at";
+type CollectionSort = "name" | "slug" | "createdAt";
 
 interface ListCollectionsFilter {
   search?: string;
@@ -36,7 +36,7 @@ interface ListCollectionsFilter {
 const sortColumns = {
   name: collections.name,
   slug: collections.slug,
-  created_at: collections.createdAt,
+  createdAt: collections.createdAt,
 } as const;
 
 export class CollectionRepository {

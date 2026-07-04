@@ -1,6 +1,7 @@
 import { Elysia, t } from "elysia";
 import { authPlugin } from "../auth/auth.plugin";
 import { csrfPlugin } from "../auth/csrf.plugin";
+import { dataEnvelope, errorResponses } from "../models/api-schema";
 import type { ProductService } from "../services/product.service";
 
 const createProductBody = t.Object({
@@ -45,5 +46,6 @@ export const ProductController = (service: ProductService) =>
         body: createProductBody,
         requirePermission: "product.create",
         csrf: true,
+        response: { 201: dataEnvelope(t.Literal("OK")), ...errorResponses },
       },
     );

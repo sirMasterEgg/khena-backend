@@ -21,7 +21,7 @@ export const csrfPlugin = new Elysia({ name: "csrf" }).macro({
         }
 
         const headerToken = headers["x-csrf-token"];
-        const cookieToken = cookie.csrf_token?.value;
+        const cookieToken = cookie.csrfToken?.value;
         if (!headerToken || !cookieToken || headerToken !== cookieToken) {
           return status(403, errorBody("FORBIDDEN", "invalid csrf token"));
         }

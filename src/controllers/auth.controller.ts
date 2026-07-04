@@ -4,12 +4,20 @@ import { generateCsrfToken, verifyCsrfToken } from "../auth/csrf";
 import { csrfPlugin } from "../auth/csrf.plugin";
 import { issuePreSession, verifyPreSession } from "../auth/pre-session";
 import { authConfig } from "../config/auth.config";
+import { dataEnvelope, errorResponses } from "../models/api-schema";
 import type { AuthService } from "../services/auth.service";
 import { errorBody } from "../utils/errors";
 
 const loginBody = t.Object({
   email: t.String({ format: "email" }),
   password: t.String({ minLength: 1 }),
+});
+
+// Semua cookie yang dipakai modul auth (nama camelCase, semuanya opsional).
+const authCookie = t.Cookie({
+  preSession: t.Optional(t.String()),
+  refreshToken: t.Optional(t.String()),
+  csrfToken: t.Optional(t.String()),
 });
 
 type Cookies = Record<string, Cookie<unknown>>;
@@ -20,7 +28,7 @@ function cookieValue(cookie: Cookie<unknown> | undefined): string | undefined {
 
 // CSRF token WAJIB readable oleh JS (double submit) — bukan httpOnly.
 function setCsrfCookie(cookie: Cookies, csrfToken: string) {
-  cookie.csrf_token?.set({
+  cookie.csrfToken?.set({
     value: csrfToken,
     httpOnly: false,
     sameSite: "lax",
@@ -30,7 +38,7 @@ function setCsrfCookie(cookie: Cookies, csrfToken: string) {
 }
 
 function setRefreshCookie(cookie: Cookies, refreshTokenRaw: string) {
-  cookie.refresh_token?.set({
+  cookie.refreshToken?.set({
     value: refreshTokenRaw,
     httpOnly: true,
     sameSite: "lax",
@@ -41,7 +49,7 @@ function setRefreshCookie(cookie: Cookies, refreshTokenRaw: string) {
 }
 
 function removePreSessionCookie(cookie: Cookies) {
-  cookie.pre_session?.set({
+  cookie.preSession?.set({
     value: "",
     httpOnly: true,
     sameSite: "lax",
@@ -56,40 +64,49 @@ export const AuthController = (service: AuthService) =>
     .use(csrfPlugin)
     // Bootstrap CSRF token: anonim → diikat ke pre-session (stateless signed
     // cookie), sudah login → diikat ke sesi login.
-    .get("/csrf", async ({ headers, cookie }) => {
-      const payload = await verifyAccessToken(
-        extractBearerToken(headers.authorization),
-      );
-      if (payload) {
-        const csrfToken = generateCsrfToken(payload.sessionId);
+    .get(
+      "/csrf",
+      async ({ headers, cookie }) => {
+        const payload = await verifyAccessToken(
+          extractBearerToken(headers.authorization),
+        );
+        if (payload) {
+          const csrfToken = generateCsrfToken(payload.sessionId);
+          setCsrfCookie(cookie, csrfToken);
+          return { data: { csrfToken } };
+        }
+
+        let preSessionId = verifyPreSession(cookieValue(cookie.preSession));
+        if (!preSessionId) {
+          const issued = issuePreSession();
+          preSessionId = issued.preSessionId;
+          cookie.preSession?.set({
+            value: issued.cookieValue,
+            httpOnly: true,
+            sameSite: "lax",
+            secure: authConfig.cookieSecure,
+            path: "/api/auth",
+            maxAge: authConfig.preSessionTtl,
+          });
+        }
+        const csrfToken = generateCsrfToken(preSessionId);
         setCsrfCookie(cookie, csrfToken);
         return { data: { csrfToken } };
-      }
-
-      let preSessionId = verifyPreSession(cookieValue(cookie.pre_session));
-      if (!preSessionId) {
-        const issued = issuePreSession();
-        preSessionId = issued.preSessionId;
-        cookie.pre_session?.set({
-          value: issued.cookieValue,
-          httpOnly: true,
-          sameSite: "lax",
-          secure: authConfig.cookieSecure,
-          path: "/api/auth",
-          maxAge: authConfig.preSessionTtl,
-        });
-      }
-      const csrfToken = generateCsrfToken(preSessionId);
-      setCsrfCookie(cookie, csrfToken);
-      return { data: { csrfToken } };
-    })
+      },
+      {
+        cookie: authCookie,
+        response: {
+          200: dataEnvelope(t.Object({ csrfToken: t.String() })),
+        },
+      },
+    )
     .post(
       "/login",
       async ({ body, headers, cookie, status }) => {
         // Anti login CSRF: token diverifikasi terhadap pre-session.
-        const preSessionId = verifyPreSession(cookieValue(cookie.pre_session));
+        const preSessionId = verifyPreSession(cookieValue(cookie.preSession));
         const headerToken = headers["x-csrf-token"];
-        const cookieToken = cookieValue(cookie.csrf_token);
+        const cookieToken = cookieValue(cookie.csrfToken);
         if (
           !preSessionId ||
           !headerToken ||
@@ -123,28 +140,57 @@ export const AuthController = (service: AuthService) =>
           },
         };
       },
-      { body: loginBody },
+      {
+        body: loginBody,
+        cookie: authCookie,
+        response: {
+          200: dataEnvelope(
+            t.Object({
+              accessToken: t.String(),
+              admin: t.Object({
+                id: t.String(),
+                name: t.String(),
+                email: t.String(),
+              }),
+            }),
+          ),
+          ...errorResponses,
+        },
+      },
     )
-    .post("/refresh", async ({ cookie, status }) => {
-      const refreshTokenRaw = cookieValue(cookie.refresh_token);
-      if (!refreshTokenRaw) {
-        return status(401, errorBody("UNAUTHORIZED", "missing refresh token"));
-      }
+    .post(
+      "/refresh",
+      async ({ cookie, status }) => {
+        const refreshTokenRaw = cookieValue(cookie.refreshToken);
+        if (!refreshTokenRaw) {
+          return status(
+            401,
+            errorBody("UNAUTHORIZED", "missing refresh token"),
+          );
+        }
 
-      const result = await service.refresh(refreshTokenRaw);
-      setRefreshCookie(cookie, result.refreshTokenRaw);
-      setCsrfCookie(cookie, result.csrfToken);
-      return { data: { accessToken: result.accessToken } };
-    })
+        const result = await service.refresh(refreshTokenRaw);
+        setRefreshCookie(cookie, result.refreshTokenRaw);
+        setCsrfCookie(cookie, result.csrfToken);
+        return { data: { accessToken: result.accessToken } };
+      },
+      {
+        cookie: authCookie,
+        response: {
+          200: dataEnvelope(t.Object({ accessToken: t.String() })),
+          ...errorResponses,
+        },
+      },
+    )
     .post(
       "/logout",
       async ({ cookie }) => {
-        const refreshTokenRaw = cookieValue(cookie.refresh_token);
+        const refreshTokenRaw = cookieValue(cookie.refreshToken);
         if (refreshTokenRaw) {
           await service.logout(refreshTokenRaw);
         }
 
-        cookie.refresh_token?.set({
+        cookie.refreshToken?.set({
           value: "",
           httpOnly: true,
           sameSite: "lax",
@@ -152,7 +198,7 @@ export const AuthController = (service: AuthService) =>
           path: "/api/auth",
           maxAge: 0,
         });
-        cookie.csrf_token?.set({
+        cookie.csrfToken?.set({
           value: "",
           httpOnly: false,
           sameSite: "lax",
@@ -162,5 +208,9 @@ export const AuthController = (service: AuthService) =>
         });
         return { data: "OK" };
       },
-      { csrf: true },
+      {
+        csrf: true,
+        cookie: authCookie,
+        response: { 200: dataEnvelope(t.Literal("OK")), ...errorResponses },
+      },
     );

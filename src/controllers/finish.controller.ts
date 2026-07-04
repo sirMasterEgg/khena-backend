@@ -1,6 +1,13 @@
 import { Elysia, t } from "elysia";
 import { authPlugin } from "../auth/auth.plugin";
 import { csrfPlugin } from "../auth/csrf.plugin";
+import {
+  dataEnvelope,
+  errorResponses,
+  listEnvelope,
+  publicErrorResponses,
+} from "../models/api-schema";
+import { finishModel } from "../models/response.model";
 import type { FinishService } from "../services/finish.service";
 
 const createFinishBody = t.Object({
@@ -31,6 +38,7 @@ export const FinishController = (service: FinishService) =>
         body: createFinishBody,
         requirePermission: "finish.create",
         csrf: true,
+        response: { 201: dataEnvelope(finishModel), ...errorResponses },
       },
     )
     .get(
@@ -40,7 +48,10 @@ export const FinishController = (service: FinishService) =>
         const limit = query.limit ?? 10;
         return await service.listFinishes({ page, limit });
       },
-      { query: listQuery },
+      {
+        query: listQuery,
+        response: { 200: listEnvelope(finishModel), ...publicErrorResponses },
+      },
     )
     .delete(
       "/:id",
@@ -48,5 +59,10 @@ export const FinishController = (service: FinishService) =>
         await service.deleteFinish(params.id);
         return { data: "OK" };
       },
-      { params: idParams, requirePermission: "finish.delete", csrf: true },
+      {
+        params: idParams,
+        requirePermission: "finish.delete",
+        csrf: true,
+        response: { 200: dataEnvelope(t.Literal("OK")), ...errorResponses },
+      },
     );
