@@ -1,10 +1,17 @@
 import { Elysia, t } from "elysia";
 import { authPlugin } from "../auth/auth.plugin";
 import { csrfPlugin } from "../auth/csrf.plugin";
+import {
+  dataEnvelope,
+  errorResponses,
+  listEnvelope,
+  publicErrorResponses,
+} from "../models/api-schema";
+import { categoryModel } from "../models/response.model";
 import type { CategoryService } from "../services/category.service";
 
 const categoryBody = t.Object({
-  room_type_id: t.String({ minLength: 1 }),
+  roomTypeId: t.String({ minLength: 1 }),
   category: t.String({ minLength: 1 }),
   order: t.Integer(),
   status: t.String({ minLength: 1 }),
@@ -13,9 +20,15 @@ const categoryBody = t.Object({
 const listQuery = t.Object({
   search: t.Optional(t.String()),
   status: t.Optional(t.String()),
-  room_type_id: t.Optional(t.String()),
-  sort: t.Optional(t.String()),
-  order_dir: t.Optional(t.String()),
+  roomTypeId: t.Optional(t.String()),
+  sort: t.Optional(
+    t.Union([
+      t.Literal("order"),
+      t.Literal("category"),
+      t.Literal("createdAt"),
+    ]),
+  ),
+  orderDir: t.Optional(t.Union([t.Literal("asc"), t.Literal("desc")])),
   page: t.Optional(t.Numeric({ minimum: 1 })),
   limit: t.Optional(t.Numeric({ minimum: 1 })),
 });
@@ -29,16 +42,16 @@ export const CategoryController = (service: CategoryService) =>
     .post(
       "/",
       async ({ body, set }) => {
-        const data = await service.createCategory({
-          roomTypeId: body.room_type_id,
-          category: body.category,
-          order: body.order,
-          status: body.status,
-        });
+        const data = await service.createCategory(body);
         set.status = 201;
         return { data };
       },
-      { body: categoryBody, requirePermission: "category.create", csrf: true },
+      {
+        body: categoryBody,
+        requirePermission: "category.create",
+        csrf: true,
+        response: { 201: dataEnvelope(categoryModel), ...errorResponses },
+      },
     )
     .get(
       "/",
@@ -48,24 +61,22 @@ export const CategoryController = (service: CategoryService) =>
         return await service.listCategories({
           search: query.search,
           status: query.status,
-          roomTypeId: query.room_type_id,
+          roomTypeId: query.roomTypeId,
           sort: query.sort,
-          orderDir: query.order_dir,
+          orderDir: query.orderDir,
           page,
           limit,
         });
       },
-      { query: listQuery },
+      {
+        query: listQuery,
+        response: { 200: listEnvelope(categoryModel), ...publicErrorResponses },
+      },
     )
     .put(
       "/:id",
       async ({ params, body }) => {
-        const data = await service.updateCategory(params.id, {
-          roomTypeId: body.room_type_id,
-          category: body.category,
-          order: body.order,
-          status: body.status,
-        });
+        const data = await service.updateCategory(params.id, body);
         return { data };
       },
       {
@@ -73,6 +84,7 @@ export const CategoryController = (service: CategoryService) =>
         body: categoryBody,
         requirePermission: "category.update",
         csrf: true,
+        response: { 200: dataEnvelope(categoryModel), ...errorResponses },
       },
     )
     .delete(
@@ -81,5 +93,10 @@ export const CategoryController = (service: CategoryService) =>
         await service.deleteCategory(params.id);
         return { data: "OK" };
       },
-      { params: idParams, requirePermission: "category.delete", csrf: true },
+      {
+        params: idParams,
+        requirePermission: "category.delete",
+        csrf: true,
+        response: { 200: dataEnvelope(t.Literal("OK")), ...errorResponses },
+      },
     );

@@ -1,27 +1,36 @@
 import { Elysia, t } from "elysia";
 import { authPlugin } from "../auth/auth.plugin";
 import { csrfPlugin } from "../auth/csrf.plugin";
+import {
+  dataEnvelope,
+  errorResponses,
+  listEnvelope,
+  publicErrorResponses,
+} from "../models/api-schema";
+import { collectionModel } from "../models/response.model";
 import type { CollectionService } from "../services/collection.service";
 
 const collectionBody = t.Object({
   name: t.String({ minLength: 1 }),
-  // cover_id & hero_id WAJIB saat create/update.
+  // coverId & heroId WAJIB saat create/update.
   // Untuk menjadikannya OPSIONAL nanti: bungkus dengan t.Optional(...), contoh:
-  //   cover_id: t.Optional(t.String({ minLength: 1 })),
-  //   hero_id: t.Optional(t.String({ minLength: 1 })),
-  cover_id: t.String({ minLength: 1 }),
-  hero_id: t.String({ minLength: 1 }),
+  //   coverId: t.Optional(t.String({ minLength: 1 })),
+  //   heroId: t.Optional(t.String({ minLength: 1 })),
+  coverId: t.String({ minLength: 1 }),
+  heroId: t.String({ minLength: 1 }),
   slug: t.String({ minLength: 1 }),
   // status dibatasi hanya "draft" atau "published" (kolom DB tetap varchar).
   status: t.Union([t.Literal("draft"), t.Literal("published")]),
-  product_ids: t.Array(t.String({ minLength: 1 })),
+  productIds: t.Array(t.String({ minLength: 1 })),
 });
 
 const listQuery = t.Object({
   search: t.Optional(t.String()),
   status: t.Optional(t.String()),
-  sort: t.Optional(t.String()),
-  order_dir: t.Optional(t.String()),
+  sort: t.Optional(
+    t.Union([t.Literal("name"), t.Literal("slug"), t.Literal("createdAt")]),
+  ),
+  orderDir: t.Optional(t.Union([t.Literal("asc"), t.Literal("desc")])),
   page: t.Optional(t.Numeric({ minimum: 1 })),
   limit: t.Optional(t.Numeric({ minimum: 1 })),
 });
@@ -35,14 +44,7 @@ export const CollectionController = (service: CollectionService) =>
     .post(
       "/",
       async ({ body, set }) => {
-        const data = await service.createCollection({
-          name: body.name,
-          coverId: body.cover_id,
-          heroId: body.hero_id,
-          slug: body.slug,
-          status: body.status,
-          productIds: body.product_ids,
-        });
+        const data = await service.createCollection(body);
         set.status = 201;
         return { data };
       },
@@ -50,6 +52,7 @@ export const CollectionController = (service: CollectionService) =>
         body: collectionBody,
         requirePermission: "collection.create",
         csrf: true,
+        response: { 201: dataEnvelope(collectionModel), ...errorResponses },
       },
     )
     .get(
@@ -61,24 +64,23 @@ export const CollectionController = (service: CollectionService) =>
           search: query.search,
           status: query.status,
           sort: query.sort,
-          orderDir: query.order_dir,
+          orderDir: query.orderDir,
           page,
           limit,
         });
       },
-      { query: listQuery },
+      {
+        query: listQuery,
+        response: {
+          200: listEnvelope(collectionModel),
+          ...publicErrorResponses,
+        },
+      },
     )
     .put(
       "/:id",
       async ({ params, body }) => {
-        const data = await service.updateCollection(params.id, {
-          name: body.name,
-          coverId: body.cover_id,
-          heroId: body.hero_id,
-          slug: body.slug,
-          status: body.status,
-          productIds: body.product_ids,
-        });
+        const data = await service.updateCollection(params.id, body);
         return { data };
       },
       {
@@ -86,6 +88,7 @@ export const CollectionController = (service: CollectionService) =>
         body: collectionBody,
         requirePermission: "collection.update",
         csrf: true,
+        response: { 200: dataEnvelope(collectionModel), ...errorResponses },
       },
     )
     .delete(
@@ -94,5 +97,10 @@ export const CollectionController = (service: CollectionService) =>
         await service.deleteCollection(params.id);
         return { data: "OK" };
       },
-      { params: idParams, requirePermission: "collection.delete", csrf: true },
+      {
+        params: idParams,
+        requirePermission: "collection.delete",
+        csrf: true,
+        response: { 200: dataEnvelope(t.Literal("OK")), ...errorResponses },
+      },
     );

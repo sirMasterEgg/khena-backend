@@ -6,7 +6,7 @@ import {
 } from "../models/category.model";
 import { db } from "../utils/db";
 
-type CategorySort = "order" | "category" | "created_at";
+type CategorySort = "order" | "category" | "createdAt";
 
 interface ListCategoriesFilter {
   search?: string;
@@ -21,7 +21,7 @@ interface ListCategoriesFilter {
 const sortColumns = {
   order: categories.order,
   category: categories.category,
-  created_at: categories.createdAt,
+  createdAt: categories.createdAt,
 } as const;
 
 export class CategoryRepository {

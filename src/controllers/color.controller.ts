@@ -1,14 +1,21 @@
 import { Elysia, t } from "elysia";
 import { authPlugin } from "../auth/auth.plugin";
 import { csrfPlugin } from "../auth/csrf.plugin";
+import {
+  dataEnvelope,
+  errorResponses,
+  listEnvelope,
+  publicErrorResponses,
+} from "../models/api-schema";
+import { colorModel } from "../models/response.model";
 import type { ColorService } from "../services/color.service";
 
 const colorBody = t.Object({
   color: t.String({ minLength: 1 }),
   hex: t.String({ pattern: "^[0-9a-fA-F]{6}$" }),
-  finish_id: t.String({ minLength: 1 }),
+  finishId: t.String({ minLength: 1 }),
   notes: t.Optional(t.String()),
-  swatch_image: t.Optional(t.String({ minLength: 1 })),
+  swatchImage: t.Optional(t.String({ minLength: 1 })),
 });
 
 const listQuery = t.Object({
@@ -25,17 +32,16 @@ export const ColorController = (service: ColorService) =>
     .post(
       "/",
       async ({ body, set }) => {
-        const data = await service.createColor({
-          color: body.color,
-          hex: body.hex,
-          finishId: body.finish_id,
-          notes: body.notes,
-          swatchImage: body.swatch_image,
-        });
+        const data = await service.createColor(body);
         set.status = 201;
         return { data };
       },
-      { body: colorBody, requirePermission: "color.create", csrf: true },
+      {
+        body: colorBody,
+        requirePermission: "color.create",
+        csrf: true,
+        response: { 201: dataEnvelope(colorModel), ...errorResponses },
+      },
     )
     .get(
       "/",
@@ -44,18 +50,15 @@ export const ColorController = (service: ColorService) =>
         const limit = query.limit ?? 10;
         return await service.listColors({ page, limit });
       },
-      { query: listQuery },
+      {
+        query: listQuery,
+        response: { 200: listEnvelope(colorModel), ...publicErrorResponses },
+      },
     )
     .put(
       "/:id",
       async ({ params, body }) => {
-        const data = await service.updateColor(params.id, {
-          color: body.color,
-          hex: body.hex,
-          finishId: body.finish_id,
-          notes: body.notes,
-          swatchImage: body.swatch_image,
-        });
+        const data = await service.updateColor(params.id, body);
         return { data };
       },
       {
@@ -63,6 +66,7 @@ export const ColorController = (service: ColorService) =>
         body: colorBody,
         requirePermission: "color.update",
         csrf: true,
+        response: { 200: dataEnvelope(colorModel), ...errorResponses },
       },
     )
     .delete(
@@ -71,5 +75,10 @@ export const ColorController = (service: ColorService) =>
         await service.deleteColor(params.id);
         return { data: "OK" };
       },
-      { params: idParams, requirePermission: "color.delete", csrf: true },
+      {
+        params: idParams,
+        requirePermission: "color.delete",
+        csrf: true,
+        response: { 200: dataEnvelope(t.Literal("OK")), ...errorResponses },
+      },
     );
