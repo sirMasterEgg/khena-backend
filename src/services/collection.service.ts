@@ -1,6 +1,7 @@
 import type { CollectionRepository } from "../repositories/collection.repository";
 import { db } from "../utils/db";
 import { ConflictError, NotFoundError } from "../utils/errors";
+import { logger } from "../utils/logger";
 
 type CollectionSort = "name" | "slug" | "createdAt";
 
@@ -66,7 +67,7 @@ export class CollectionService {
     await this.validateMedia(input.coverId, input.heroId);
     await this.validateProductIds(input.productIds);
 
-    return await db.transaction(async (tx) => {
+    const created = await db.transaction(async (tx) => {
       const collection = await this.repo.create(
         {
           name: input.name,
@@ -87,6 +88,12 @@ export class CollectionService {
 
       return collection;
     });
+
+    logger.info(
+      { collectionId: created.id, productCount: input.productIds.length },
+      "collection created",
+    );
+    return created;
   }
 
   async listCollections(input: ListCollectionsInput) {
@@ -123,7 +130,7 @@ export class CollectionService {
     await this.validateMedia(input.coverId, input.heroId);
     await this.validateProductIds(input.productIds);
 
-    return await db.transaction(async (tx) => {
+    const updated = await db.transaction(async (tx) => {
       const collection = await this.repo.update(
         id,
         {
@@ -146,6 +153,12 @@ export class CollectionService {
 
       return collection;
     });
+
+    logger.info(
+      { collectionId: id, productCount: input.productIds.length },
+      "collection updated",
+    );
+    return updated;
   }
 
   async deleteCollection(id: string) {
@@ -157,5 +170,6 @@ export class CollectionService {
       await this.repo.softDeleteProductCollectionsByCollectionId(id, tx);
       await this.repo.softDelete(id, tx);
     });
+    logger.info({ collectionId: id }, "collection deleted");
   }
 }

@@ -1,6 +1,7 @@
 import type { ProductRepository } from "../repositories/product.repository";
 import { db } from "../utils/db";
 import { ConflictError, NotFoundError } from "../utils/errors";
+import { logger } from "../utils/logger";
 
 interface CreateProductVariant {
   colorId: string;
@@ -89,7 +90,7 @@ export class ProductService {
     }
 
     // Insert in transaction
-    return await db.transaction(async (tx) => {
+    const productId = await db.transaction(async (tx) => {
       // Create product
       const product = await this.repo.createProduct(
         {
@@ -173,7 +174,13 @@ export class ProductService {
         );
       }
 
-      return { success: true };
+      return product.id;
     });
+
+    logger.info(
+      { productId, variantCount: input.variant.length },
+      "product created",
+    );
+    return { success: true };
   }
 }

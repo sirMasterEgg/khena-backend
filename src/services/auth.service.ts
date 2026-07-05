@@ -51,6 +51,15 @@ export class AuthService {
     }
 
     const issued = await this.issueSession(admin.id, input.deviceInfo);
+    // Sukses login: catat administratorId untuk audit. Session id sensitif —
+    // simpan hash-nya, bukan nilai aslinya (AWS best practice #4).
+    logger.info(
+      {
+        administratorId: admin.id,
+        sessionHash: hashToken(issued.session.id),
+      },
+      "login succeeded",
+    );
     return { ...issued, admin };
   }
 
