@@ -1,6 +1,7 @@
 import { cors } from "@elysia/cors";
 import { Elysia } from "elysia";
 import { syncPermissions } from "./auth/permission-sync";
+import { loggerPlugin } from "./plugins/logger.plugin";
 import { AuthRoute } from "./routes/auth.route";
 import { CategoryRoute } from "./routes/category.route";
 import { CollectionRoute } from "./routes/collection.route";
@@ -10,6 +11,7 @@ import { MediaRoute } from "./routes/media.route";
 import { ProductRoute } from "./routes/product.route";
 import { RoomTypeRoute } from "./routes/room-type.route";
 import { AppError, errorBody } from "./utils/errors";
+import { logger } from "./utils/logger";
 
 const port = process.env.PORT ? Number(process.env.PORT) : 3000;
 
@@ -18,6 +20,7 @@ await syncPermissions();
 
 const app = new Elysia({ prefix: "/api" })
   .use(cors())
+  .use(loggerPlugin)
   .onError(({ code, error, set }) => {
     // Error bisnis yang dilempar service/repository sebagai AppError.
     if (error instanceof AppError) {
@@ -37,8 +40,9 @@ const app = new Elysia({ prefix: "/api" })
       return errorBody("NOT_FOUND", "route not found");
     }
 
-    // Sisanya: error tak terduga. Log detailnya, tapi jangan bocorkan ke client.
-    console.error(error);
+    // Sisanya: error tak terduga. Log detailnya (termasuk stack trace lewat
+    // serializer `err` bawaan pino), tapi jangan bocorkan ke client.
+    logger.error({ err: error }, "unhandled error");
     set.status = 500;
     return errorBody("INTERNAL_ERROR", "internal server error");
   })
@@ -53,5 +57,5 @@ const app = new Elysia({ prefix: "/api" })
   .use(ColorRoute);
 
 app.listen(port, () => {
-  console.log(`🦊 Server running at http://localhost:${port}`);
+  logger.info(`🦊 Server running at http://localhost:${port}`);
 });
