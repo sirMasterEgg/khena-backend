@@ -51,7 +51,7 @@ function sanitizeFileName(fileName: string): string {
 
 function generateObjectKey(fileName: string, folderPrefix?: string): string {
   const safeFileName = sanitizeFileName(fileName);
-  const folder = folderPrefix || "misc";
+  const folder = folderPrefix || "";
   const uuid = Bun.randomUUIDv7();
 
   return `${folder}/${uuid}-${safeFileName}`;
