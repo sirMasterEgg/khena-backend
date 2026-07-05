@@ -1,3 +1,4 @@
+import { cors } from "@elysia/cors";
 import { Elysia } from "elysia";
 import { syncPermissions } from "./auth/permission-sync";
 import { AuthRoute } from "./routes/auth.route";
@@ -16,6 +17,7 @@ const port = process.env.PORT ? Number(process.env.PORT) : 3000;
 await syncPermissions();
 
 const app = new Elysia({ prefix: "/api" })
+  .use(cors())
   .onError(({ code, error, set }) => {
     // Error bisnis yang dilempar service/repository sebagai AppError.
     if (error instanceof AppError) {
