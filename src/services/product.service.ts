@@ -32,7 +32,7 @@ interface CreateProductInput {
 export class ProductService {
   constructor(private readonly repo: ProductRepository) {}
 
-  async createProduct(input: CreateProductInput) {
+  async createProduct(input: CreateProductInput, actorName: string) {
     // Check for duplicate SKU
     const existingProduct = await this.repo.findByBaseSku(input.sku);
     if (existingProduct) {
@@ -102,6 +102,7 @@ export class ProductService {
           productDimensionMediaId: getMediaId(input.productDimension),
           boxDimensionMediaId: getMediaId(input.boxDimensions),
           status: input.status,
+          createdBy: actorName,
         },
         tx,
       );
@@ -112,7 +113,7 @@ export class ProductService {
       }[] = [];
       for (const instruction of input.careInstructions) {
         const careInstruction = await this.repo.createCareInstruction(
-          { instruction },
+          { instruction, createdBy: actorName },
           tx,
         );
         careInstructionRows.push({ instructionId: careInstruction.id });
@@ -122,6 +123,7 @@ export class ProductService {
         const productCareInstructionRows = careInstructionRows.map((row) => ({
           productId: product.id,
           careInstructionId: row.instructionId,
+          createdBy: actorName,
         }));
         await this.repo.createProductCareInstructions(
           productCareInstructionRows,
@@ -134,6 +136,7 @@ export class ProductService {
         productId: product.id,
         mediaId: getMediaId(fileKey),
         order: index,
+        createdBy: actorName,
       }));
       await this.repo.createProductMediaShowcase(showcaseRows, tx);
 
@@ -149,6 +152,7 @@ export class ProductService {
             capitalPrice: variant.capitalPrice,
             marketplacePrice: variant.marketplacePrice,
             visibility: variant.visibility,
+            createdBy: actorName,
           },
           tx,
         );
@@ -158,6 +162,7 @@ export class ProductService {
           detailProductId: detailProduct.id,
           mediaId: getMediaId(fileKey),
           order: index,
+          createdBy: actorName,
         }));
         await this.repo.createDetailProductImages(imageRows, tx);
 
@@ -168,6 +173,7 @@ export class ProductService {
               collectionId: input.collectionId,
               detailProductId: detailProduct.id,
               order: variantIndex,
+              createdBy: actorName,
             },
           ],
           tx,
