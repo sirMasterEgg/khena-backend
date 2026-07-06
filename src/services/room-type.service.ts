@@ -1,5 +1,6 @@
 import type { RoomTypeRepository } from "../repositories/room-type.repository";
 import { NotFoundError } from "../utils/errors";
+import { logger } from "../utils/logger";
 
 interface CreateRoomTypeInput {
   roomType: string;
@@ -14,7 +15,9 @@ export class RoomTypeService {
   constructor(private readonly repo: RoomTypeRepository) {}
 
   async createRoomType(input: CreateRoomTypeInput) {
-    return await this.repo.create({ roomType: input.roomType });
+    const created = await this.repo.create({ roomType: input.roomType });
+    logger.info({ roomTypeId: created.id }, "room type created");
+    return created;
   }
 
   async listRoomTypes(input: ListRoomTypesInput) {
@@ -33,5 +36,6 @@ export class RoomTypeService {
       throw new NotFoundError("room type not found");
     }
     await this.repo.softDelete(id);
+    logger.info({ roomTypeId: id }, "room type deleted");
   }
 }

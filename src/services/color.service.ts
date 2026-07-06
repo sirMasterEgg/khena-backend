@@ -1,5 +1,6 @@
 import type { ColorRepository } from "../repositories/color.repository";
 import { NotFoundError } from "../utils/errors";
+import { logger } from "../utils/logger";
 
 interface CreateColorInput {
   color: string;
@@ -40,13 +41,15 @@ export class ColorService {
     await this.validateFinish(input.finishId);
     await this.validateSwatch(input.swatchImage);
 
-    return await this.repo.create({
+    const created = await this.repo.create({
       name: input.color,
       hexCode: input.hex,
       finishesId: input.finishId,
       notes: input.notes,
       swatchPhoto: input.swatchImage,
     });
+    logger.info({ colorId: created.id }, "color created");
+    return created;
   }
 
   async listColors(input: ListColorsInput) {
@@ -67,13 +70,15 @@ export class ColorService {
     await this.validateFinish(input.finishId);
     await this.validateSwatch(input.swatchImage);
 
-    return await this.repo.update(id, {
+    const updated = await this.repo.update(id, {
       name: input.color,
       hexCode: input.hex,
       finishesId: input.finishId,
       notes: input.notes,
       swatchPhoto: input.swatchImage,
     });
+    logger.info({ colorId: id }, "color updated");
+    return updated;
   }
 
   async deleteColor(id: string) {
@@ -82,5 +87,6 @@ export class ColorService {
       throw new NotFoundError("color not found");
     }
     await this.repo.softDelete(id);
+    logger.info({ colorId: id }, "color deleted");
   }
 }

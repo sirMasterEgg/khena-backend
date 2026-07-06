@@ -1,4 +1,5 @@
 import { BadRequestError } from "../utils/errors";
+import { logger } from "../utils/logger";
 import { createStorageStrategy } from "./storage/storage.factory";
 import type {
   CompletedPart,
@@ -51,10 +52,12 @@ function sanitizeFileName(fileName: string): string {
 
 function generateObjectKey(fileName: string, folderPrefix?: string): string {
   const safeFileName = sanitizeFileName(fileName);
-  const folder = folderPrefix || "misc";
   const uuid = Bun.randomUUIDv7();
 
-  return `${folder}/${uuid}-${safeFileName}`;
+  const folder = folderPrefix || "";
+  const uniqueFileName = `${uuid}-${safeFileName}`;
+
+  return folder ? `${folder}/${uniqueFileName}` : uniqueFileName;
 }
 
 export class FileService {
@@ -68,6 +71,16 @@ export class FileService {
       body: input.body,
       contentType: input.contentType,
     });
+
+    // Log metadata objek (bukan isi file) untuk audit operasi storage.
+    logger.info(
+      {
+        objectKey,
+        sizeBytes: input.body.byteLength,
+        provider: this.storage.provider,
+      },
+      "storage object uploaded",
+    );
 
     return {
       objectKey,
@@ -132,6 +145,10 @@ export class FileService {
 
   async deleteFile(objectKey: string): Promise<void> {
     await this.storage.deleteObject(objectKey);
+    logger.info(
+      { objectKey, provider: this.storage.provider },
+      "storage object deleted",
+    );
   }
 
   async getFileMetadata(objectKey: string): Promise<StorageFileMetadata> {

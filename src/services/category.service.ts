@@ -1,6 +1,7 @@
 import type { CategoryRepository } from "../repositories/category.repository";
 import type { RoomTypeRepository } from "../repositories/room-type.repository";
 import { NotFoundError } from "../utils/errors";
+import { logger } from "../utils/logger";
 
 type CategorySort = "order" | "category" | "createdAt";
 
@@ -36,12 +37,14 @@ export class CategoryService {
     if (!roomType) {
       throw new NotFoundError("room type not found");
     }
-    return await this.categoryRepo.create({
+    const created = await this.categoryRepo.create({
       category: input.category,
       order: input.order,
       roomTypeId: input.roomTypeId,
       status: input.status,
     });
+    logger.info({ categoryId: created.id }, "category created");
+    return created;
   }
 
   async listCategories(input: ListCategoriesInput) {
@@ -76,12 +79,14 @@ export class CategoryService {
     if (!roomType) {
       throw new NotFoundError("room type not found");
     }
-    return await this.categoryRepo.update(id, {
+    const updated = await this.categoryRepo.update(id, {
       category: input.category,
       order: input.order,
       roomTypeId: input.roomTypeId,
       status: input.status,
     });
+    logger.info({ categoryId: id }, "category updated");
+    return updated;
   }
 
   async deleteCategory(id: string) {
@@ -90,5 +95,6 @@ export class CategoryService {
       throw new NotFoundError("category not found");
     }
     await this.categoryRepo.softDelete(id);
+    logger.info({ categoryId: id }, "category deleted");
   }
 }

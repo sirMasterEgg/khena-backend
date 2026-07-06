@@ -1,6 +1,7 @@
 import type { MediaRepository } from "../repositories/media.repository";
 import { db } from "../utils/db";
 import { BadRequestError, ConflictError, NotFoundError } from "../utils/errors";
+import { logger } from "../utils/logger";
 import {
   isRootPath,
   joinPath,
@@ -127,11 +128,16 @@ export class MediaService {
       throw new ConflictError("folder already exists");
     }
 
-    return await this.repo.createFolder({
+    const created = await this.repo.createFolder({
       name: sanitizeName(input.folderName),
       parentId,
       path: newPath,
     });
+    logger.info(
+      { folderId: created.id, path: newPath },
+      "media folder created",
+    );
+    return created;
   }
 
   async uploadDirect(input: UploadDirectInput) {
@@ -169,6 +175,10 @@ export class MediaService {
       });
     }
 
+    logger.info(
+      { folderId, fileCount: results.length },
+      "media files uploaded",
+    );
     return results;
   }
 
@@ -238,11 +248,16 @@ export class MediaService {
     );
 
     const metadata = await this.fileService.getFileMetadata(file.objectKey);
-    return await this.repo.updateMedia(file.id, {
+    const updated = await this.repo.updateMedia(file.id, {
       status: "ready",
       sizeBytes: metadata.sizeBytes || file.sizeBytes,
       mimeType: metadata.contentType ?? file.mimeType,
     });
+    logger.info(
+      { mediaId: file.id, sizeBytes: updated.sizeBytes },
+      "media multipart upload completed",
+    );
+    return updated;
   }
 
   async abortMultipart(input: AbortMultipartInput) {
@@ -254,6 +269,7 @@ export class MediaService {
     await this.fileService.abortMultipartUpload(file.objectKey, input.uploadId);
     await this.repo.softDeleteMedia(file.id);
 
+    logger.info({ mediaId: file.id }, "media multipart upload aborted");
     return { success: true };
   }
 
@@ -303,7 +319,7 @@ export class MediaService {
   }
 
   async updateFolder(id: string, input: UpdateFolderInput) {
-    return await db.transaction(async (tx) => {
+    const updated = await db.transaction(async (tx) => {
       const folder = await this.repo.findFolderById(id);
       if (!folder) {
         throw new NotFoundError("folder not found");
@@ -353,6 +369,9 @@ export class MediaService {
         tx,
       );
     });
+
+    logger.info({ folderId: id, path: updated.path }, "media folder updated");
+    return updated;
   }
 
   async updateFile(id: string, input: UpdateFileInput) {
@@ -363,7 +382,7 @@ export class MediaService {
 
     const folderId = await this.resolveFolderId(input.path);
 
-    return await this.repo.updateMedia(id, {
+    const updated = await this.repo.updateMedia(id, {
       name: sanitizeName(input.file.name),
       originalName: input.file.name,
       type: deriveType(input.file.type),
@@ -372,10 +391,12 @@ export class MediaService {
       sizeBytes: input.file.size,
       folderId,
     });
+    logger.info({ mediaId: id }, "media file updated");
+    return updated;
   }
 
   async deleteFolder(id: string) {
-    return await db.transaction(async (tx) => {
+    const deletedFolderCount = await db.transaction(async (tx) => {
       const folder = await this.repo.findFolderById(id);
       if (!folder) {
         throw new NotFoundError("folder not found");
@@ -388,8 +409,11 @@ export class MediaService {
       await this.repo.softDeleteMediaByFolderIds(folderIds, tx);
       await this.repo.softDeleteFolders(folderIds, tx);
 
-      return { success: true };
+      return folderIds.length;
     });
+
+    logger.info({ folderId: id, deletedFolderCount }, "media folder deleted");
+    return { success: true };
   }
 
   async deleteFile(id: string) {
@@ -406,6 +430,7 @@ export class MediaService {
       await this.fileService.deleteFile(file.thumbnailKey);
     }
 
+    logger.info({ mediaId: file.id }, "media file deleted");
     return { success: true };
   }
 }
