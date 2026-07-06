@@ -154,6 +154,19 @@ export class FileService {
   async getFileMetadata(objectKey: string): Promise<StorageFileMetadata> {
     return await this.storage.getObjectMetadata(objectKey);
   }
+
+  /**
+   * Pindahkan objek di storage: copy ke key baru lalu hapus key lama.
+   * Copy dulu agar bila copy gagal, objek asli tetap utuh.
+   */
+  async moveFile(sourceKey: string, destinationKey: string): Promise<void> {
+    await this.storage.copyObject(sourceKey, destinationKey);
+    await this.storage.deleteObject(sourceKey);
+    logger.info(
+      { sourceKey, destinationKey, provider: this.storage.provider },
+      "storage object moved",
+    );
+  }
 }
 
 export const fileService = new FileService(createStorageStrategy());

@@ -1,6 +1,7 @@
 import {
   AbortMultipartUploadCommand,
   CompleteMultipartUploadCommand,
+  CopyObjectCommand,
   CreateMultipartUploadCommand,
   DeleteObjectCommand,
   GetObjectCommand,
@@ -80,6 +81,22 @@ export class S3StorageStrategy implements StorageStrategy {
     const command = new DeleteObjectCommand({
       Bucket: this.bucket,
       Key: objectKey,
+    });
+
+    await this.client.send(command);
+  }
+
+  async copyObject(sourceKey: string, destinationKey: string): Promise<void> {
+    // CopySource harus berformat `${bucket}/${sourceKey}` dan di-encode per
+    // segmen agar karakter khusus (spasi, dsb.) tidak merusak header.
+    const copySource = [this.bucket, ...sourceKey.split("/")]
+      .map(encodeURIComponent)
+      .join("/");
+
+    const command = new CopyObjectCommand({
+      Bucket: this.bucket,
+      Key: destinationKey,
+      CopySource: copySource,
     });
 
     await this.client.send(command);
