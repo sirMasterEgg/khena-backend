@@ -36,10 +36,10 @@ export class ColorRepository {
     return row;
   }
 
-  async softDelete(id: string): Promise<void> {
+  async softDelete(id: string, actorName: string): Promise<void> {
     await db
       .update(colors)
-      .set({ deletedAt: new Date() })
+      .set({ deletedAt: new Date(), deletedBy: actorName })
       .where(eq(colors.id, id));
   }
 

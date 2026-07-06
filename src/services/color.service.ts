@@ -37,7 +37,7 @@ export class ColorService {
     }
   }
 
-  async createColor(input: CreateColorInput) {
+  async createColor(input: CreateColorInput, actorName: string) {
     await this.validateFinish(input.finishId);
     await this.validateSwatch(input.swatchImage);
 
@@ -47,6 +47,7 @@ export class ColorService {
       finishesId: input.finishId,
       notes: input.notes,
       swatchPhoto: input.swatchImage,
+      createdBy: actorName,
     });
     logger.info({ colorId: created.id }, "color created");
     return created;
@@ -62,7 +63,7 @@ export class ColorService {
     };
   }
 
-  async updateColor(id: string, input: UpdateColorInput) {
+  async updateColor(id: string, input: UpdateColorInput, actorName: string) {
     const existing = await this.repo.findById(id);
     if (!existing) {
       throw new NotFoundError("color not found");
@@ -76,17 +77,18 @@ export class ColorService {
       finishesId: input.finishId,
       notes: input.notes,
       swatchPhoto: input.swatchImage,
+      updatedBy: actorName,
     });
     logger.info({ colorId: id }, "color updated");
     return updated;
   }
 
-  async deleteColor(id: string) {
+  async deleteColor(id: string, actorName: string) {
     const existing = await this.repo.findById(id);
     if (!existing) {
       throw new NotFoundError("color not found");
     }
-    await this.repo.softDelete(id);
+    await this.repo.softDelete(id, actorName);
     logger.info({ colorId: id }, "color deleted");
   }
 }
