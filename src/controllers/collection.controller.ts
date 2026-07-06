@@ -43,8 +43,8 @@ export const CollectionController = (service: CollectionService) =>
     .use(csrfPlugin)
     .post(
       "/",
-      async ({ body, set, administrator }) => {
-        const data = await service.createCollection(body, administrator.name);
+      async ({ body, set }) => {
+        const data = await service.createCollection(body);
         set.status = 201;
         return { data };
       },
@@ -79,12 +79,8 @@ export const CollectionController = (service: CollectionService) =>
     )
     .put(
       "/:id",
-      async ({ params, body, administrator }) => {
-        const data = await service.updateCollection(
-          params.id,
-          body,
-          administrator.name,
-        );
+      async ({ params, body }) => {
+        const data = await service.updateCollection(params.id, body);
         return { data };
       },
       {
@@ -97,8 +93,8 @@ export const CollectionController = (service: CollectionService) =>
     )
     .delete(
       "/:id",
-      async ({ params, administrator }) => {
-        await service.deleteCollection(params.id, administrator.name);
+      async ({ params }) => {
+        await service.deleteCollection(params.id);
         return { data: "OK" };
       },
       {

@@ -14,14 +14,13 @@ interface ListFinishesInput {
 export class FinishService {
   constructor(private readonly repo: FinishRepository) {}
 
-  async createFinish(input: CreateFinishInput, actorName: string) {
+  async createFinish(input: CreateFinishInput) {
     const existing = await this.repo.findByName(input.finish);
     if (existing) {
       throw new ConflictError("finish already exists");
     }
     const created = await this.repo.create({
       name: input.finish,
-      createdBy: actorName,
     });
     logger.info({ finishId: created.id }, "finish created");
     return created;
@@ -37,12 +36,12 @@ export class FinishService {
     };
   }
 
-  async deleteFinish(id: string, actorName: string) {
+  async deleteFinish(id: string) {
     const existing = await this.repo.findById(id);
     if (!existing) {
       throw new NotFoundError("finish not found");
     }
-    await this.repo.softDelete(id, actorName);
+    await this.repo.softDelete(id);
     logger.info({ finishId: id }, "finish deleted");
   }
 }

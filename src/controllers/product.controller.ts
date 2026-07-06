@@ -37,8 +37,8 @@ export const ProductController = (service: ProductService) =>
     .use(csrfPlugin)
     .post(
       "/",
-      async ({ body, set, administrator }) => {
-        await service.createProduct(body, administrator.name);
+      async ({ body, set }) => {
+        await service.createProduct(body);
         set.status = 201;
         return { data: "OK" };
       },

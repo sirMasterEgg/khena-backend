@@ -27,8 +27,8 @@ export const RoomTypeController = (service: RoomTypeService) =>
     .use(csrfPlugin)
     .post(
       "/",
-      async ({ body, set, administrator }) => {
-        const data = await service.createRoomType(body, administrator.name);
+      async ({ body, set }) => {
+        const data = await service.createRoomType(body);
         set.status = 201;
         return { data };
       },
@@ -56,8 +56,8 @@ export const RoomTypeController = (service: RoomTypeService) =>
     )
     .delete(
       "/:id",
-      async ({ params, administrator }) => {
-        await service.deleteRoomType(params.id, administrator.name);
+      async ({ params }) => {
+        await service.deleteRoomType(params.id);
         return { data: "OK" };
       },
       {

@@ -41,8 +41,8 @@ export const CategoryController = (service: CategoryService) =>
     .use(csrfPlugin)
     .post(
       "/",
-      async ({ body, set, administrator }) => {
-        const data = await service.createCategory(body, administrator.name);
+      async ({ body, set }) => {
+        const data = await service.createCategory(body);
         set.status = 201;
         return { data };
       },
@@ -75,12 +75,8 @@ export const CategoryController = (service: CategoryService) =>
     )
     .put(
       "/:id",
-      async ({ params, body, administrator }) => {
-        const data = await service.updateCategory(
-          params.id,
-          body,
-          administrator.name,
-        );
+      async ({ params, body }) => {
+        const data = await service.updateCategory(params.id, body);
         return { data };
       },
       {
@@ -93,8 +89,8 @@ export const CategoryController = (service: CategoryService) =>
     )
     .delete(
       "/:id",
-      async ({ params, administrator }) => {
-        await service.deleteCategory(params.id, administrator.name);
+      async ({ params }) => {
+        await service.deleteCategory(params.id);
         return { data: "OK" };
       },
       {

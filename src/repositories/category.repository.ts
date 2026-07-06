@@ -4,6 +4,7 @@ import {
   categories,
   type NewCategory,
 } from "../models/category.model";
+import { stampCreate, stampDelete, stampUpdate } from "../utils/audit";
 import { db } from "../utils/db";
 
 type CategorySort = "order" | "category" | "createdAt";
@@ -26,7 +27,10 @@ const sortColumns = {
 
 export class CategoryRepository {
   async create(data: NewCategory): Promise<Category> {
-    const result = await db.insert(categories).values(data).returning();
+    const result = await db
+      .insert(categories)
+      .values(stampCreate(data))
+      .returning();
     const row = result[0];
     if (!row) {
       throw new Error("failed to create category");
@@ -82,7 +86,7 @@ export class CategoryRepository {
   async update(id: string, data: Partial<NewCategory>): Promise<Category> {
     const result = await db
       .update(categories)
-      .set({ ...data, updatedAt: new Date() })
+      .set(stampUpdate(data))
       .where(eq(categories.id, id))
       .returning();
     const row = result[0];
@@ -92,10 +96,7 @@ export class CategoryRepository {
     return row;
   }
 
-  async softDelete(id: string, actorName: string): Promise<void> {
-    await db
-      .update(categories)
-      .set({ deletedAt: new Date(), deletedBy: actorName })
-      .where(eq(categories.id, id));
+  async softDelete(id: string): Promise<void> {
+    await db.update(categories).set(stampDelete()).where(eq(categories.id, id));
   }
 }

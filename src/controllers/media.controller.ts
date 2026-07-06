@@ -98,8 +98,8 @@ export const MediaController = (service: MediaService) =>
     // --- specific routes first (must come before the catch-all GET /*) ---
     .post(
       "/folder",
-      async ({ body, set, administrator }) => {
-        const folder = await service.createFolder(body, administrator.name);
+      async ({ body, set }) => {
+        const folder = await service.createFolder(body);
         set.status = 201;
         return { data: folder };
       },
@@ -112,7 +112,7 @@ export const MediaController = (service: MediaService) =>
     )
     .post(
       "/upload-direct",
-      async ({ body, set, administrator }) => {
+      async ({ body, set }) => {
         const files = Array.isArray(body.files) ? body.files : [body.files];
         const payload = await Promise.all(
           files.map(async (f) => ({
@@ -121,13 +121,10 @@ export const MediaController = (service: MediaService) =>
             body: Buffer.from(await f.arrayBuffer()),
           })),
         );
-        const result = await service.uploadDirect(
-          {
-            path: body.path,
-            files: payload,
-          },
-          administrator.name,
-        );
+        const result = await service.uploadDirect({
+          path: body.path,
+          files: payload,
+        });
         set.status = 201;
         return { data: result };
       },
@@ -140,8 +137,8 @@ export const MediaController = (service: MediaService) =>
     )
     .post(
       "/upload-multipart/init",
-      async ({ body, set, administrator }) => {
-        const result = await service.initMultipart(body, administrator.name);
+      async ({ body, set }) => {
+        const result = await service.initMultipart(body);
         set.status = 201;
         return { data: result };
       },
@@ -178,11 +175,8 @@ export const MediaController = (service: MediaService) =>
     )
     .post(
       "/upload-multipart/complete",
-      async ({ body, administrator }) => {
-        const result = await service.completeMultipart(
-          body,
-          administrator.name,
-        );
+      async ({ body }) => {
+        const result = await service.completeMultipart(body);
         return { data: result };
       },
       {
@@ -194,8 +188,8 @@ export const MediaController = (service: MediaService) =>
     )
     .post(
       "/upload-multipart/abort",
-      async ({ body, administrator }) => {
-        const result = await service.abortMultipart(body, administrator.name);
+      async ({ body }) => {
+        const result = await service.abortMultipart(body);
         return { data: result };
       },
       {
@@ -232,12 +226,8 @@ export const MediaController = (service: MediaService) =>
     )
     .put(
       "/files/:id",
-      async ({ params, body, administrator }) => {
-        const file = await service.updateFile(
-          params.id,
-          body,
-          administrator.name,
-        );
+      async ({ params, body }) => {
+        const file = await service.updateFile(params.id, body);
         return { data: file };
       },
       {
@@ -250,8 +240,8 @@ export const MediaController = (service: MediaService) =>
     )
     .delete(
       "/files/:id",
-      async ({ params, administrator }) => {
-        await service.deleteFile(params.id, administrator.name);
+      async ({ params }) => {
+        await service.deleteFile(params.id);
         return { data: "OK" };
       },
       {
@@ -263,12 +253,8 @@ export const MediaController = (service: MediaService) =>
     )
     .put(
       "/folder/:id",
-      async ({ params, body, administrator }) => {
-        const folder = await service.updateFolder(
-          params.id,
-          body,
-          administrator.name,
-        );
+      async ({ params, body }) => {
+        const folder = await service.updateFolder(params.id, body);
         return { data: folder };
       },
       {
@@ -281,8 +267,8 @@ export const MediaController = (service: MediaService) =>
     )
     .delete(
       "/folder/:id",
-      async ({ params, administrator }) => {
-        await service.deleteFolder(params.id, administrator.name);
+      async ({ params }) => {
+        await service.deleteFolder(params.id);
         return { data: "OK" };
       },
       {

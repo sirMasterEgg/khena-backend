@@ -14,10 +14,9 @@ interface ListRoomTypesInput {
 export class RoomTypeService {
   constructor(private readonly repo: RoomTypeRepository) {}
 
-  async createRoomType(input: CreateRoomTypeInput, actorName: string) {
+  async createRoomType(input: CreateRoomTypeInput) {
     const created = await this.repo.create({
       roomType: input.roomType,
-      createdBy: actorName,
     });
     logger.info({ roomTypeId: created.id }, "room type created");
     return created;
@@ -33,12 +32,12 @@ export class RoomTypeService {
     };
   }
 
-  async deleteRoomType(id: string, actorName: string) {
+  async deleteRoomType(id: string) {
     const existing = await this.repo.findById(id);
     if (!existing) {
       throw new NotFoundError("room type not found");
     }
-    await this.repo.softDelete(id, actorName);
+    await this.repo.softDelete(id);
     logger.info({ roomTypeId: id }, "room type deleted");
   }
 }

@@ -27,13 +27,10 @@ export const FinishController = (service: FinishService) =>
     .use(csrfPlugin)
     .post(
       "/",
-      async ({ body, set, administrator }) => {
-        const data = await service.createFinish(
-          {
-            finish: body.finish,
-          },
-          administrator.name,
-        );
+      async ({ body, set }) => {
+        const data = await service.createFinish({
+          finish: body.finish,
+        });
         set.status = 201;
         return { data };
       },
@@ -58,8 +55,8 @@ export const FinishController = (service: FinishService) =>
     )
     .delete(
       "/:id",
-      async ({ params, administrator }) => {
-        await service.deleteFinish(params.id, administrator.name);
+      async ({ params }) => {
+        await service.deleteFinish(params.id);
         return { data: "OK" };
       },
       {

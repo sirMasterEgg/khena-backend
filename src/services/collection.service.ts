@@ -59,7 +59,7 @@ export class CollectionService {
     }
   }
 
-  async createCollection(input: CreateCollectionInput, actorName: string) {
+  async createCollection(input: CreateCollectionInput) {
     const existingSlug = await this.repo.findBySlug(input.slug);
     if (existingSlug) {
       throw new ConflictError("slug already exists");
@@ -75,7 +75,6 @@ export class CollectionService {
           coverImage: input.coverId,
           bannerImage: input.heroId,
           status: input.status,
-          createdBy: actorName,
         },
         tx,
       );
@@ -84,7 +83,6 @@ export class CollectionService {
         collectionId: collection.id,
         detailProductId,
         order: index,
-        createdBy: actorName,
       }));
       await this.repo.insertProductCollections(rows, tx);
 
@@ -120,11 +118,7 @@ export class CollectionService {
     };
   }
 
-  async updateCollection(
-    id: string,
-    input: UpdateCollectionInput,
-    actorName: string,
-  ) {
+  async updateCollection(id: string, input: UpdateCollectionInput) {
     const existing = await this.repo.findById(id);
     if (!existing) {
       throw new NotFoundError("collection not found");
@@ -145,21 +139,15 @@ export class CollectionService {
           coverImage: input.coverId,
           bannerImage: input.heroId,
           status: input.status,
-          updatedBy: actorName,
         },
         tx,
       );
 
-      await this.repo.softDeleteProductCollectionsByCollectionId(
-        id,
-        actorName,
-        tx,
-      );
+      await this.repo.softDeleteProductCollectionsByCollectionId(id, tx);
       const rows = input.productIds.map((detailProductId, index) => ({
         collectionId: id,
         detailProductId,
         order: index,
-        createdBy: actorName,
       }));
       await this.repo.insertProductCollections(rows, tx);
 
@@ -173,18 +161,14 @@ export class CollectionService {
     return updated;
   }
 
-  async deleteCollection(id: string, actorName: string) {
+  async deleteCollection(id: string) {
     const existing = await this.repo.findById(id);
     if (!existing) {
       throw new NotFoundError("collection not found");
     }
     await db.transaction(async (tx) => {
-      await this.repo.softDeleteProductCollectionsByCollectionId(
-        id,
-        actorName,
-        tx,
-      );
-      await this.repo.softDelete(id, actorName, tx);
+      await this.repo.softDeleteProductCollectionsByCollectionId(id, tx);
+      await this.repo.softDelete(id, tx);
     });
     logger.info({ collectionId: id }, "collection deleted");
   }

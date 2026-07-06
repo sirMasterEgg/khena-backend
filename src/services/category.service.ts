@@ -32,7 +32,7 @@ export class CategoryService {
     private readonly roomTypeRepo: RoomTypeRepository,
   ) {}
 
-  async createCategory(input: CreateCategoryInput, actorName: string) {
+  async createCategory(input: CreateCategoryInput) {
     const roomType = await this.roomTypeRepo.findById(input.roomTypeId);
     if (!roomType) {
       throw new NotFoundError("room type not found");
@@ -42,7 +42,6 @@ export class CategoryService {
       order: input.order,
       roomTypeId: input.roomTypeId,
       status: input.status,
-      createdBy: actorName,
     });
     logger.info({ categoryId: created.id }, "category created");
     return created;
@@ -71,11 +70,7 @@ export class CategoryService {
     };
   }
 
-  async updateCategory(
-    id: string,
-    input: UpdateCategoryInput,
-    actorName: string,
-  ) {
+  async updateCategory(id: string, input: UpdateCategoryInput) {
     const existing = await this.categoryRepo.findById(id);
     if (!existing) {
       throw new NotFoundError("category not found");
@@ -89,18 +84,17 @@ export class CategoryService {
       order: input.order,
       roomTypeId: input.roomTypeId,
       status: input.status,
-      updatedBy: actorName,
     });
     logger.info({ categoryId: id }, "category updated");
     return updated;
   }
 
-  async deleteCategory(id: string, actorName: string) {
+  async deleteCategory(id: string) {
     const existing = await this.categoryRepo.findById(id);
     if (!existing) {
       throw new NotFoundError("category not found");
     }
-    await this.categoryRepo.softDelete(id, actorName);
+    await this.categoryRepo.softDelete(id);
     logger.info({ categoryId: id }, "category deleted");
   }
 }

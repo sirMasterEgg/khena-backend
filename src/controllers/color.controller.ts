@@ -31,8 +31,8 @@ export const ColorController = (service: ColorService) =>
     .use(csrfPlugin)
     .post(
       "/",
-      async ({ body, set, administrator }) => {
-        const data = await service.createColor(body, administrator.name);
+      async ({ body, set }) => {
+        const data = await service.createColor(body);
         set.status = 201;
         return { data };
       },
@@ -57,12 +57,8 @@ export const ColorController = (service: ColorService) =>
     )
     .put(
       "/:id",
-      async ({ params, body, administrator }) => {
-        const data = await service.updateColor(
-          params.id,
-          body,
-          administrator.name,
-        );
+      async ({ params, body }) => {
+        const data = await service.updateColor(params.id, body);
         return { data };
       },
       {
@@ -75,8 +71,8 @@ export const ColorController = (service: ColorService) =>
     )
     .delete(
       "/:id",
-      async ({ params, administrator }) => {
-        await service.deleteColor(params.id, administrator.name);
+      async ({ params }) => {
+        await service.deleteColor(params.id);
         return { data: "OK" };
       },
       {
