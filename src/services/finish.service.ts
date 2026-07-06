@@ -19,7 +19,9 @@ export class FinishService {
     if (existing) {
       throw new ConflictError("finish already exists");
     }
-    const created = await this.repo.create({ name: input.finish });
+    const created = await this.repo.create({
+      name: input.finish,
+    });
     logger.info({ finishId: created.id }, "finish created");
     return created;
   }

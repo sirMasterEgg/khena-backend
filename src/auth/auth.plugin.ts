@@ -1,5 +1,6 @@
 import { Elysia } from "elysia";
 import { AuthRepository } from "../repositories/auth.repository";
+import { setActor } from "../utils/actor-context";
 import { errorBody } from "../utils/errors";
 import { extractBearerToken, verifyAccessToken } from "./access-token";
 
@@ -33,6 +34,10 @@ export const authPlugin = new Elysia({ name: "auth" }).macro({
       if (!permissionCodes.includes(code)) {
         return status(403, errorBody("FORBIDDEN", "forbidden"));
       }
+
+      // Bind actor ke async context request ini agar audit columns
+      // (created_by/updated_by/deleted_by) terisi otomatis di layer repository.
+      setActor(administrator.name);
 
       return {
         administrator,

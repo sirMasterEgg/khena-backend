@@ -2,11 +2,15 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { type Color, colors, type NewColor } from "../models/color.model";
 import { type Finish, finishes } from "../models/finish.model";
 import { type Media, media } from "../models/media.model";
+import { stampCreate, stampDelete, stampUpdate } from "../utils/audit";
 import { db } from "../utils/db";
 
 export class ColorRepository {
   async create(data: NewColor): Promise<Color> {
-    const result = await db.insert(colors).values(data).returning();
+    const result = await db
+      .insert(colors)
+      .values(stampCreate(data))
+      .returning();
     const row = result[0];
     if (!row) {
       throw new Error("failed to create color");
@@ -26,7 +30,7 @@ export class ColorRepository {
   async update(id: string, data: Partial<NewColor>): Promise<Color> {
     const result = await db
       .update(colors)
-      .set({ ...data, updatedAt: new Date() })
+      .set(stampUpdate(data))
       .where(eq(colors.id, id))
       .returning();
     const row = result[0];
@@ -37,10 +41,7 @@ export class ColorRepository {
   }
 
   async softDelete(id: string): Promise<void> {
-    await db
-      .update(colors)
-      .set({ deletedAt: new Date() })
-      .where(eq(colors.id, id));
+    await db.update(colors).set(stampDelete()).where(eq(colors.id, id));
   }
 
   async list(

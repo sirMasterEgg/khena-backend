@@ -23,6 +23,7 @@ import {
   productMediaShowcase,
   products,
 } from "../models/product.model";
+import { stampCreate } from "../utils/audit";
 import { db, type Tx } from "../utils/db";
 
 export class ProductRepository {
@@ -65,7 +66,10 @@ export class ProductRepository {
   }
 
   async createProduct(data: NewProduct, tx: Tx) {
-    const result = await tx.insert(products).values(data).returning();
+    const result = await tx
+      .insert(products)
+      .values(stampCreate(data))
+      .returning();
     const product = result[0];
     if (!product) {
       throw new Error("failed to create product");
@@ -74,11 +78,17 @@ export class ProductRepository {
   }
 
   async createProductMediaShowcase(rows: NewProductMediaShowcase[], tx: Tx) {
-    return await tx.insert(productMediaShowcase).values(rows).returning();
+    return await tx
+      .insert(productMediaShowcase)
+      .values(rows.map(stampCreate))
+      .returning();
   }
 
   async createDetailProduct(data: NewDetailProduct, tx: Tx) {
-    const result = await tx.insert(detailProducts).values(data).returning();
+    const result = await tx
+      .insert(detailProducts)
+      .values(stampCreate(data))
+      .returning();
     const detailProduct = result[0];
     if (!detailProduct) {
       throw new Error("failed to create detail product");
@@ -87,15 +97,24 @@ export class ProductRepository {
   }
 
   async createDetailProductImages(rows: NewDetailProductImage[], tx: Tx) {
-    return await tx.insert(detailProductImages).values(rows).returning();
+    return await tx
+      .insert(detailProductImages)
+      .values(rows.map(stampCreate))
+      .returning();
   }
 
   async createProductCollections(rows: NewProductCollection[], tx: Tx) {
-    return await tx.insert(productCollections).values(rows).returning();
+    return await tx
+      .insert(productCollections)
+      .values(rows.map(stampCreate))
+      .returning();
   }
 
   async createCareInstruction(data: NewCareInstruction, tx: Tx) {
-    const result = await tx.insert(careInstructions).values(data).returning();
+    const result = await tx
+      .insert(careInstructions)
+      .values(stampCreate(data))
+      .returning();
     const row = result[0];
     if (!row) {
       throw new Error("failed to create care instruction");
@@ -107,6 +126,9 @@ export class ProductRepository {
     rows: NewProductCareInstruction[],
     tx: Tx,
   ) {
-    return await tx.insert(productCareInstructions).values(rows).returning();
+    return await tx
+      .insert(productCareInstructions)
+      .values(rows.map(stampCreate))
+      .returning();
   }
 }

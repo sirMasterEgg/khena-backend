@@ -15,7 +15,9 @@ export class RoomTypeService {
   constructor(private readonly repo: RoomTypeRepository) {}
 
   async createRoomType(input: CreateRoomTypeInput) {
-    const created = await this.repo.create({ roomType: input.roomType });
+    const created = await this.repo.create({
+      roomType: input.roomType,
+    });
     logger.info({ roomTypeId: created.id }, "room type created");
     return created;
   }

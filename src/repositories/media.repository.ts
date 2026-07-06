@@ -1,6 +1,7 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { type Folder, folders, type NewFolder } from "../models/folder.model";
 import { type Media, media, type NewMedia } from "../models/media.model";
+import { stampCreate, stampDelete, stampUpdate } from "../utils/audit";
 import { db, type Tx } from "../utils/db";
 
 type DbOrTx = typeof db | Tx;
@@ -58,7 +59,10 @@ export class MediaRepository {
 
   async createFolder(data: NewFolder, tx?: DbOrTx): Promise<Folder> {
     const conn = tx ?? db;
-    const result = await conn.insert(folders).values(data).returning();
+    const result = await conn
+      .insert(folders)
+      .values(stampCreate(data))
+      .returning();
     const folder = result[0];
     if (!folder) {
       throw new Error("failed to create folder");
@@ -73,7 +77,7 @@ export class MediaRepository {
   ): Promise<Folder> {
     const result = await tx
       .update(folders)
-      .set({ ...data, updatedAt: new Date() })
+      .set(stampUpdate(data))
       .where(eq(folders.id, id))
       .returning();
     const folder = result[0];
@@ -87,10 +91,7 @@ export class MediaRepository {
     if (ids.length === 0) {
       return;
     }
-    await tx
-      .update(folders)
-      .set({ deletedAt: new Date() })
-      .where(inArray(folders.id, ids));
+    await tx.update(folders).set(stampDelete()).where(inArray(folders.id, ids));
   }
 
   // ---- media ----
@@ -130,7 +131,10 @@ export class MediaRepository {
 
   async createMedia(data: NewMedia, tx?: DbOrTx): Promise<Media> {
     const conn = tx ?? db;
-    const result = await conn.insert(media).values(data).returning();
+    const result = await conn
+      .insert(media)
+      .values(stampCreate(data))
+      .returning();
     const row = result[0];
     if (!row) {
       throw new Error("failed to create media");
@@ -146,7 +150,7 @@ export class MediaRepository {
     const conn = tx ?? db;
     const result = await conn
       .update(media)
-      .set({ ...data, updatedAt: new Date() })
+      .set(stampUpdate(data))
       .where(eq(media.id, id))
       .returning();
     const row = result[0];
@@ -158,10 +162,7 @@ export class MediaRepository {
 
   async softDeleteMedia(id: string, tx?: DbOrTx): Promise<void> {
     const conn = tx ?? db;
-    await conn
-      .update(media)
-      .set({ deletedAt: new Date() })
-      .where(eq(media.id, id));
+    await conn.update(media).set(stampDelete()).where(eq(media.id, id));
   }
 
   async findMediaByFolderIds(folderIds: string[]): Promise<Media[]> {
@@ -183,7 +184,7 @@ export class MediaRepository {
     }
     await tx
       .update(media)
-      .set({ deletedAt: new Date() })
+      .set(stampDelete())
       .where(inArray(media.folderId, folderIds));
   }
 }

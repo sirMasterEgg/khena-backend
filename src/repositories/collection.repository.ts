@@ -18,6 +18,7 @@ import {
 } from "../models/collection.model";
 import { type Media, media } from "../models/media.model";
 import { type DetailProduct, detailProducts } from "../models/product.model";
+import { stampCreate, stampDelete, stampUpdate } from "../utils/audit";
 import { db, type Tx } from "../utils/db";
 
 type DbOrTx = typeof db | Tx;
@@ -81,7 +82,10 @@ export class CollectionRepository {
   }
 
   async create(data: NewCollection, tx: DbOrTx): Promise<Collection> {
-    const result = await tx.insert(collections).values(data).returning();
+    const result = await tx
+      .insert(collections)
+      .values(stampCreate(data))
+      .returning();
     const row = result[0];
     if (!row) {
       throw new Error("failed to create collection");
@@ -96,7 +100,7 @@ export class CollectionRepository {
   ): Promise<Collection> {
     const result = await tx
       .update(collections)
-      .set({ ...data, updatedAt: new Date() })
+      .set(stampUpdate(data))
       .where(eq(collections.id, id))
       .returning();
     const row = result[0];
@@ -109,7 +113,7 @@ export class CollectionRepository {
   async softDelete(id: string, tx: DbOrTx): Promise<void> {
     await tx
       .update(collections)
-      .set({ deletedAt: new Date() })
+      .set(stampDelete())
       .where(eq(collections.id, id));
   }
 
@@ -120,7 +124,7 @@ export class CollectionRepository {
     if (rows.length === 0) {
       return;
     }
-    await tx.insert(productCollections).values(rows);
+    await tx.insert(productCollections).values(rows.map(stampCreate));
   }
 
   async softDeleteProductCollectionsByCollectionId(
@@ -129,7 +133,7 @@ export class CollectionRepository {
   ): Promise<void> {
     await tx
       .update(productCollections)
-      .set({ deletedAt: new Date() })
+      .set(stampDelete())
       .where(
         and(
           eq(productCollections.collectionId, collectionId),

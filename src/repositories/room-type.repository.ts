@@ -4,11 +4,15 @@ import {
   type RoomType,
   roomTypes,
 } from "../models/room-type.model";
+import { stampCreate, stampDelete } from "../utils/audit";
 import { db } from "../utils/db";
 
 export class RoomTypeRepository {
   async create(data: NewRoomType): Promise<RoomType> {
-    const result = await db.insert(roomTypes).values(data).returning();
+    const result = await db
+      .insert(roomTypes)
+      .values(stampCreate(data))
+      .returning();
     const row = result[0];
     if (!row) {
       throw new Error("failed to create room type");
@@ -47,9 +51,6 @@ export class RoomTypeRepository {
   }
 
   async softDelete(id: string): Promise<void> {
-    await db
-      .update(roomTypes)
-      .set({ deletedAt: new Date() })
-      .where(eq(roomTypes.id, id));
+    await db.update(roomTypes).set(stampDelete()).where(eq(roomTypes.id, id));
   }
 }
