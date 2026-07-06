@@ -46,10 +46,10 @@ export class RoomTypeRepository {
     return { rows, total };
   }
 
-  async softDelete(id: string): Promise<void> {
+  async softDelete(id: string, actorName: string): Promise<void> {
     await db
       .update(roomTypes)
-      .set({ deletedAt: new Date() })
+      .set({ deletedAt: new Date(), deletedBy: actorName })
       .where(eq(roomTypes.id, id));
   }
 }
