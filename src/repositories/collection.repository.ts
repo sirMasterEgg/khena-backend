@@ -106,10 +106,10 @@ export class CollectionRepository {
     return row;
   }
 
-  async softDelete(id: string, tx: DbOrTx): Promise<void> {
+  async softDelete(id: string, actorName: string, tx: DbOrTx): Promise<void> {
     await tx
       .update(collections)
-      .set({ deletedAt: new Date() })
+      .set({ deletedAt: new Date(), deletedBy: actorName })
       .where(eq(collections.id, id));
   }
 
@@ -125,11 +125,12 @@ export class CollectionRepository {
 
   async softDeleteProductCollectionsByCollectionId(
     collectionId: string,
+    actorName: string,
     tx: DbOrTx,
   ): Promise<void> {
     await tx
       .update(productCollections)
-      .set({ deletedAt: new Date() })
+      .set({ deletedAt: new Date(), deletedBy: actorName })
       .where(
         and(
           eq(productCollections.collectionId, collectionId),
