@@ -92,10 +92,10 @@ export class CategoryRepository {
     return row;
   }
 
-  async softDelete(id: string): Promise<void> {
+  async softDelete(id: string, actorName: string): Promise<void> {
     await db
       .update(categories)
-      .set({ deletedAt: new Date() })
+      .set({ deletedAt: new Date(), deletedBy: actorName })
       .where(eq(categories.id, id));
   }
 }
