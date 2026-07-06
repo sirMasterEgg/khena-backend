@@ -131,6 +131,15 @@ export class MediaRepository {
     return result[0];
   }
 
+  async findMediaByObjectKey(objectKey: string): Promise<Media | undefined> {
+    const result = await db
+      .select()
+      .from(media)
+      .where(and(eq(media.objectKey, objectKey), isNull(media.deletedAt)))
+      .limit(1);
+    return result[0];
+  }
+
   async findMediaByIds(ids: string[]): Promise<Media[]> {
     if (ids.length === 0) {
       return [];

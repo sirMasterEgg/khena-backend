@@ -33,6 +33,8 @@ export interface StorageStrategy {
 
   deleteObject(objectKey: string): Promise<void>;
 
+  copyObject(sourceKey: string, destinationKey: string): Promise<void>;
+
   getObjectMetadata(objectKey: string): Promise<StorageFileMetadata>;
 
   // ---- multipart (chunked) upload — all bytes flow through the server ----

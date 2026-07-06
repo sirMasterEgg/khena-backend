@@ -118,6 +118,8 @@ const updateFileBody = t.Object({
   mediaCategoryId: t.Optional(t.Union([t.String({ minLength: 1 }), t.Null()])),
 });
 
+const objectKeyBody = t.Object({ objectKey: t.String({ minLength: 1 }) });
+
 const idParams = t.Object({ id: t.String({ minLength: 1 }) });
 
 export const MediaController = (service: MediaService) =>
@@ -263,6 +265,20 @@ export const MediaController = (service: MediaService) =>
       {
         params: idParams,
         body: updateFileBody,
+        requirePermission: "media.update",
+        csrf: true,
+        response: { 200: dataEnvelope(mediaModel), ...errorResponses },
+      },
+    )
+    .patch(
+      "/files/:id/object-key",
+      async ({ params, body }) => {
+        const file = await service.updateObjectKey(params.id, body.objectKey);
+        return { data: file };
+      },
+      {
+        params: idParams,
+        body: objectKeyBody,
         requirePermission: "media.update",
         csrf: true,
         response: { 200: dataEnvelope(mediaModel), ...errorResponses },

@@ -436,6 +436,47 @@ export class MediaService {
     return updated;
   }
 
+  /**
+   * Ubah objectKey (lokasi fisik file di S3) sebuah media. Objek dipindahkan
+   * di storage lebih dulu (copy → delete), baru kolom DB diperbarui, sehingga
+   * bila move gagal, DB tidak ikut berubah.
+   */
+  async updateObjectKey(id: string, newObjectKey: string) {
+    const file = await this.repo.findMediaById(id);
+    if (!file) {
+      throw new NotFoundError("file not found");
+    }
+
+    const sanitized = newObjectKey.trim();
+    if (
+      sanitized.length === 0 ||
+      sanitized.includes("..") ||
+      sanitized.startsWith("/")
+    ) {
+      throw new BadRequestError("invalid object key");
+    }
+
+    // Tanpa perubahan → kembalikan apa adanya tanpa menyentuh storage.
+    if (sanitized === file.objectKey) {
+      return file;
+    }
+
+    const existing = await this.repo.findMediaByObjectKey(sanitized);
+    if (existing) {
+      throw new ConflictError("object key already in use");
+    }
+
+    // Pindahkan objek dulu; kalau gagal, DB tidak diubah.
+    await this.fileService.moveFile(file.objectKey, sanitized);
+
+    const updated = await this.repo.updateMedia(id, { objectKey: sanitized });
+    logger.info(
+      { mediaId: id, oldObjectKey: file.objectKey, newObjectKey: sanitized },
+      "media object key updated",
+    );
+    return updated;
+  }
+
   async deleteFolder(id: string) {
     const deletedFolderCount = await db.transaction(async (tx) => {
       const folder = await this.repo.findFolderById(id);
