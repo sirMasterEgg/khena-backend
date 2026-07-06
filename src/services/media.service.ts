@@ -1,4 +1,7 @@
-import type { MediaRepository } from "../repositories/media.repository";
+import type {
+  MediaListFilter,
+  MediaRepository,
+} from "../repositories/media.repository";
 import { db } from "../utils/db";
 import { BadRequestError, ConflictError, NotFoundError } from "../utils/errors";
 import { logger } from "../utils/logger";
@@ -29,6 +32,8 @@ interface UpdateFolderInput {
 interface UpdateFileInput {
   path: string;
   file: UploadFileInput;
+  // undefined = jangan sentuh kolom, null = kosongkan, string = ganti.
+  mediaCategoryId?: string | null;
 }
 
 interface UploadDirectFile {
@@ -40,12 +45,17 @@ interface UploadDirectFile {
 interface UploadDirectInput {
   path: string;
   files: UploadDirectFile[];
+  mediaCategoryId?: string;
 }
 
 interface InitMultipartInput {
   path: string;
   file: UploadFileInput;
+  mediaCategoryId?: string;
 }
+
+/** Query params untuk browse media (filter + sort). */
+export type BrowseFilter = Omit<MediaListFilter, "folderId">;
 
 interface UploadPartInput {
   mediaId: string;
@@ -140,10 +150,27 @@ export class MediaService {
     return created;
   }
 
+  /**
+   * Pastikan mediaCategoryId (jika terisi) merujuk kategori yang ada.
+   * `undefined`/`null` dilewati. Mengembalikan nilai apa adanya untuk diteruskan.
+   */
+  private async assertMediaCategory<T extends string | null | undefined>(
+    mediaCategoryId: T,
+  ): Promise<T> {
+    if (mediaCategoryId) {
+      const category = await this.repo.findMediaCategoryById(mediaCategoryId);
+      if (!category) {
+        throw new NotFoundError("media category not found");
+      }
+    }
+    return mediaCategoryId;
+  }
+
   async uploadDirect(input: UploadDirectInput) {
     const path = normalizePath(input.path);
     const folderId = await this.resolveFolderId(path);
     const folderPrefix = isRootPath(path) ? undefined : path.slice(1);
+    await this.assertMediaCategory(input.mediaCategoryId);
 
     const results = [];
     for (const file of input.files) {
@@ -166,6 +193,7 @@ export class MediaService {
         bucket: uploaded.bucket,
         objectKey: uploaded.objectKey,
         status: "ready",
+        mediaCategoryId: input.mediaCategoryId ?? null,
       });
 
       results.push({
@@ -186,6 +214,7 @@ export class MediaService {
     const path = normalizePath(input.path);
     const folderId = await this.resolveFolderId(path);
     const folderPrefix = isRootPath(path) ? undefined : path.slice(1);
+    await this.assertMediaCategory(input.mediaCategoryId);
 
     const init = await this.fileService.initMultipartUpload({
       fileName: input.file.name,
@@ -206,6 +235,7 @@ export class MediaService {
       bucket: init.bucket,
       objectKey: init.objectKey,
       status: "pending",
+      mediaCategoryId: input.mediaCategoryId ?? null,
     });
 
     return {
@@ -273,8 +303,10 @@ export class MediaService {
     return { success: true };
   }
 
-  async browse(rawPath: string) {
+  async browse(rawPath: string, filter: BrowseFilter) {
     const path = normalizePath(rawPath);
+
+    await this.assertMediaCategory(filter.mediaCategoryId);
 
     let folderId: string | null = null;
     if (!isRootPath(path)) {
@@ -287,10 +319,14 @@ export class MediaService {
 
     const [subFolders, files] = await Promise.all([
       this.repo.findSubFolders(folderId),
-      this.repo.findMediaByFolderId(folderId),
+      this.repo.findMediaByFolderId({ ...filter, folderId }),
     ]);
 
     return { path, folders: subFolders, files };
+  }
+
+  async listCategories() {
+    return await this.repo.listMediaCategories();
   }
 
   async getFile(id: string) {
@@ -381,6 +417,7 @@ export class MediaService {
     }
 
     const folderId = await this.resolveFolderId(input.path);
+    await this.assertMediaCategory(input.mediaCategoryId);
 
     const updated = await this.repo.updateMedia(id, {
       name: sanitizeName(input.file.name),
@@ -390,6 +427,10 @@ export class MediaService {
       extension: extractExtension(input.file.name),
       sizeBytes: input.file.size,
       folderId,
+      // undefined = jangan sentuh; null = kosongkan; string = ganti.
+      ...(input.mediaCategoryId !== undefined
+        ? { mediaCategoryId: input.mediaCategoryId }
+        : {}),
     });
     logger.info({ mediaId: id }, "media file updated");
     return updated;

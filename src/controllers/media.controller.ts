@@ -6,7 +6,11 @@ import {
   errorResponses,
   publicErrorResponses,
 } from "../models/api-schema";
-import { folderModel, mediaModel } from "../models/response.model";
+import {
+  folderModel,
+  mediaCategoryModel,
+  mediaModel,
+} from "../models/response.model";
 import type { MediaService } from "../services/media.service";
 
 // --- Response models untuk bentuk data khusus (bukan entitas DB langsung) ---
@@ -53,11 +57,34 @@ const fileMeta = t.Object({
 const uploadDirectBody = t.Object({
   path: t.String(),
   files: t.Files(),
+  mediaCategoryId: t.Optional(t.String({ minLength: 1 })),
 });
 
 const multipartInitBody = t.Object({
   path: t.String(),
   file: fileMeta,
+  mediaCategoryId: t.Optional(t.String({ minLength: 1 })),
+});
+
+const browseQuery = t.Object({
+  search: t.Optional(t.String()),
+  mediaCategoryId: t.Optional(t.String()),
+  type: t.Optional(
+    t.Union([
+      t.Literal("image"),
+      t.Literal("video"),
+      t.Literal("audio"),
+      t.Literal("document"),
+    ]),
+  ),
+  sort: t.Optional(
+    t.Union([
+      t.Literal("name"),
+      t.Literal("createdAt"),
+      t.Literal("sizeBytes"),
+    ]),
+  ),
+  order: t.Optional(t.Union([t.Literal("asc"), t.Literal("desc")])),
 });
 
 const multipartPartBody = t.Object({
@@ -87,6 +114,8 @@ const multipartAbortBody = t.Object({
 const updateFileBody = t.Object({
   path: t.String(),
   file: fileMeta,
+  // null = lepas kategori, string = ganti, absen = jangan sentuh.
+  mediaCategoryId: t.Optional(t.Union([t.String({ minLength: 1 }), t.Null()])),
 });
 
 const idParams = t.Object({ id: t.String({ minLength: 1 }) });
@@ -124,6 +153,7 @@ export const MediaController = (service: MediaService) =>
         const result = await service.uploadDirect({
           path: body.path,
           files: payload,
+          mediaCategoryId: body.mediaCategoryId,
         });
         set.status = 201;
         return { data: result };
@@ -278,25 +308,54 @@ export const MediaController = (service: MediaService) =>
         response: { 200: dataEnvelope(t.Literal("OK")), ...errorResponses },
       },
     )
+    // Daftar kategori — HARUS didaftarkan sebelum catch-all GET /* agar
+    // "categories" tidak dianggap path folder.
+    .get(
+      "/categories",
+      async () => {
+        const categories = await service.listCategories();
+        return { data: categories };
+      },
+      {
+        response: {
+          200: dataEnvelope(t.Array(mediaCategoryModel)),
+          ...publicErrorResponses,
+        },
+      },
+    )
     // --- browse: catch-all path, registered last ---
     .get(
       "/",
-      async () => {
-        const result = await service.browse("/");
+      async ({ query }) => {
+        const result = await service.browse("/", {
+          search: query.search,
+          mediaCategoryId: query.mediaCategoryId,
+          type: query.type,
+          sort: query.sort ?? "createdAt",
+          order: query.order ?? "desc",
+        });
         return { data: result };
       },
       {
+        query: browseQuery,
         response: { 200: dataEnvelope(browseResult), ...publicErrorResponses },
       },
     )
     .get(
       "/*",
-      async ({ params }) => {
+      async ({ params, query }) => {
         const wildcard = (params as Record<string, string>)["*"] ?? "";
-        const result = await service.browse(wildcard);
+        const result = await service.browse(wildcard, {
+          search: query.search,
+          mediaCategoryId: query.mediaCategoryId,
+          type: query.type,
+          sort: query.sort ?? "createdAt",
+          order: query.order ?? "desc",
+        });
         return { data: result };
       },
       {
+        query: browseQuery,
         response: { 200: dataEnvelope(browseResult), ...publicErrorResponses },
       },
     );
