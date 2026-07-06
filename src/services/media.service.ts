@@ -109,7 +109,7 @@ export class MediaService {
     return folder.id;
   }
 
-  async createFolder(input: CreateFolderInput) {
+  async createFolder(input: CreateFolderInput, actorName: string) {
     const parentPath = normalizePath(input.path);
 
     let parentId: string | null = null;
@@ -132,6 +132,7 @@ export class MediaService {
       name: sanitizeName(input.folderName),
       parentId,
       path: newPath,
+      createdBy: actorName,
     });
     logger.info(
       { folderId: created.id, path: newPath },
@@ -140,7 +141,7 @@ export class MediaService {
     return created;
   }
 
-  async uploadDirect(input: UploadDirectInput) {
+  async uploadDirect(input: UploadDirectInput, actorName: string) {
     const path = normalizePath(input.path);
     const folderId = await this.resolveFolderId(path);
     const folderPrefix = isRootPath(path) ? undefined : path.slice(1);
@@ -166,6 +167,7 @@ export class MediaService {
         bucket: uploaded.bucket,
         objectKey: uploaded.objectKey,
         status: "ready",
+        createdBy: actorName,
       });
 
       results.push({
@@ -182,7 +184,7 @@ export class MediaService {
     return results;
   }
 
-  async initMultipart(input: InitMultipartInput) {
+  async initMultipart(input: InitMultipartInput, actorName: string) {
     const path = normalizePath(input.path);
     const folderId = await this.resolveFolderId(path);
     const folderPrefix = isRootPath(path) ? undefined : path.slice(1);
@@ -206,6 +208,7 @@ export class MediaService {
       bucket: init.bucket,
       objectKey: init.objectKey,
       status: "pending",
+      createdBy: actorName,
     });
 
     return {
@@ -234,7 +237,7 @@ export class MediaService {
     return { partNumber: input.partNumber, eTag };
   }
 
-  async completeMultipart(input: CompleteMultipartInput) {
+  async completeMultipart(input: CompleteMultipartInput, actorName: string) {
     const file = await this.repo.findMediaById(input.mediaId);
     if (!file) {
       throw new NotFoundError("media not found");
@@ -252,6 +255,7 @@ export class MediaService {
       status: "ready",
       sizeBytes: metadata.sizeBytes || file.sizeBytes,
       mimeType: metadata.contentType ?? file.mimeType,
+      updatedBy: actorName,
     });
     logger.info(
       { mediaId: file.id, sizeBytes: updated.sizeBytes },
@@ -260,14 +264,14 @@ export class MediaService {
     return updated;
   }
 
-  async abortMultipart(input: AbortMultipartInput) {
+  async abortMultipart(input: AbortMultipartInput, actorName: string) {
     const file = await this.repo.findMediaById(input.mediaId);
     if (!file) {
       throw new NotFoundError("media not found");
     }
 
     await this.fileService.abortMultipartUpload(file.objectKey, input.uploadId);
-    await this.repo.softDeleteMedia(file.id);
+    await this.repo.softDeleteMedia(file.id, actorName);
 
     logger.info({ mediaId: file.id }, "media multipart upload aborted");
     return { success: true };
@@ -318,7 +322,7 @@ export class MediaService {
     };
   }
 
-  async updateFolder(id: string, input: UpdateFolderInput) {
+  async updateFolder(id: string, input: UpdateFolderInput, actorName: string) {
     const updated = await db.transaction(async (tx) => {
       const folder = await this.repo.findFolderById(id);
       if (!folder) {
@@ -356,7 +360,11 @@ export class MediaService {
           continue;
         }
         const updatedPath = `${newPath}${node.path.slice(oldPath.length)}`;
-        await this.repo.updateFolder(node.id, { path: updatedPath }, tx);
+        await this.repo.updateFolder(
+          node.id,
+          { path: updatedPath, updatedBy: actorName },
+          tx,
+        );
       }
 
       return await this.repo.updateFolder(
@@ -365,6 +373,7 @@ export class MediaService {
           name: sanitizeName(input.folderName),
           parentId,
           path: newPath,
+          updatedBy: actorName,
         },
         tx,
       );
@@ -374,7 +383,7 @@ export class MediaService {
     return updated;
   }
 
-  async updateFile(id: string, input: UpdateFileInput) {
+  async updateFile(id: string, input: UpdateFileInput, actorName: string) {
     const file = await this.repo.findMediaById(id);
     if (!file) {
       throw new NotFoundError("file not found");
@@ -390,12 +399,13 @@ export class MediaService {
       extension: extractExtension(input.file.name),
       sizeBytes: input.file.size,
       folderId,
+      updatedBy: actorName,
     });
     logger.info({ mediaId: id }, "media file updated");
     return updated;
   }
 
-  async deleteFolder(id: string) {
+  async deleteFolder(id: string, actorName: string) {
     const deletedFolderCount = await db.transaction(async (tx) => {
       const folder = await this.repo.findFolderById(id);
       if (!folder) {
@@ -406,8 +416,8 @@ export class MediaService {
       const subtree = await this.repo.findFolderSubtree(folder.path);
       const folderIds = subtree.map((f) => f.id);
 
-      await this.repo.softDeleteMediaByFolderIds(folderIds, tx);
-      await this.repo.softDeleteFolders(folderIds, tx);
+      await this.repo.softDeleteMediaByFolderIds(folderIds, actorName, tx);
+      await this.repo.softDeleteFolders(folderIds, actorName, tx);
 
       return folderIds.length;
     });
@@ -416,13 +426,13 @@ export class MediaService {
     return { success: true };
   }
 
-  async deleteFile(id: string) {
+  async deleteFile(id: string, actorName: string) {
     const file = await this.repo.findMediaById(id);
     if (!file) {
       throw new NotFoundError("file not found");
     }
 
-    await this.repo.softDeleteMedia(file.id);
+    await this.repo.softDeleteMedia(file.id, actorName);
 
     // Remove the physical object(s) from storage (idempotent).
     await this.fileService.deleteFile(file.objectKey);

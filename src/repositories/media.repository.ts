@@ -83,13 +83,17 @@ export class MediaRepository {
     return folder;
   }
 
-  async softDeleteFolders(ids: string[], tx: DbOrTx): Promise<void> {
+  async softDeleteFolders(
+    ids: string[],
+    actorName: string,
+    tx: DbOrTx,
+  ): Promise<void> {
     if (ids.length === 0) {
       return;
     }
     await tx
       .update(folders)
-      .set({ deletedAt: new Date() })
+      .set({ deletedAt: new Date(), deletedBy: actorName })
       .where(inArray(folders.id, ids));
   }
 
@@ -156,11 +160,15 @@ export class MediaRepository {
     return row;
   }
 
-  async softDeleteMedia(id: string, tx?: DbOrTx): Promise<void> {
+  async softDeleteMedia(
+    id: string,
+    actorName: string,
+    tx?: DbOrTx,
+  ): Promise<void> {
     const conn = tx ?? db;
     await conn
       .update(media)
-      .set({ deletedAt: new Date() })
+      .set({ deletedAt: new Date(), deletedBy: actorName })
       .where(eq(media.id, id));
   }
 
@@ -176,6 +184,7 @@ export class MediaRepository {
 
   async softDeleteMediaByFolderIds(
     folderIds: string[],
+    actorName: string,
     tx: DbOrTx,
   ): Promise<void> {
     if (folderIds.length === 0) {
@@ -183,7 +192,7 @@ export class MediaRepository {
     }
     await tx
       .update(media)
-      .set({ deletedAt: new Date() })
+      .set({ deletedAt: new Date(), deletedBy: actorName })
       .where(inArray(media.folderId, folderIds));
   }
 }
