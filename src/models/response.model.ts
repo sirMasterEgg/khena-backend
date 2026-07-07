@@ -89,3 +89,52 @@ export const mediaModel = t.Object({
   mediaCategoryId: nullableString,
   ...auditColumns,
 });
+
+const productCategoryModel = t.Object({
+  id: t.String(),
+  name: t.String(),
+});
+
+const nullableMediaModel = t.Union([mediaModel, t.Null()]);
+
+/** Item pada list produk berpaginasi (GET /api/products). */
+export const productListItemModel = t.Object({
+  id: t.String(),
+  name: t.String(),
+  baseSku: t.String(),
+  status: nullableString,
+  description: nullableString,
+  category: productCategoryModel,
+  createdAt: t.Date(),
+  updatedAt: t.Date(),
+});
+
+/** Detail produk lengkap beserta relasinya (GET /api/products/:id). */
+export const productDetailModel = t.Object({
+  id: t.String(),
+  name: t.String(),
+  baseSku: t.String(),
+  description: nullableString,
+  materials: nullableString,
+  status: nullableString,
+  category: productCategoryModel,
+  productDimensionMedia: nullableMediaModel,
+  boxDimensionMedia: nullableMediaModel,
+  careInstructions: t.Array(
+    t.Object({ id: t.String(), instruction: t.String() }),
+  ),
+  media: t.Array(mediaModel),
+  variants: t.Array(
+    t.Object({
+      id: t.String(),
+      colorId: t.String(),
+      detailProductSku: t.String(),
+      price: t.Number(),
+      discountPercent: nullableNumber,
+      capitalPrice: t.Number(),
+      marketplacePrice: t.Number(),
+      visibility: t.String(),
+      images: t.Array(mediaModel),
+    }),
+  ),
+});
