@@ -100,6 +100,37 @@ export const AuthController = (service: AuthService) =>
         },
       },
     )
+    // Data user yang sedang login. Otentikasi via Bearer token (bukan cookie),
+    // jadi tidak butuh CSRF. Token invalid/expired/revoked → 401 lewat service.me.
+    .get(
+      "/me",
+      async ({ headers }) => {
+        const admin = await service.me(
+          extractBearerToken(headers.authorization),
+        );
+        return {
+          data: {
+            id: admin.id,
+            name: admin.name,
+            email: admin.email,
+            role: admin.role,
+          },
+        };
+      },
+      {
+        response: {
+          200: dataEnvelope(
+            t.Object({
+              id: t.String(),
+              name: t.String(),
+              email: t.String(),
+              role: t.Union([t.String(), t.Null()]),
+            }),
+          ),
+          ...errorResponses,
+        },
+      },
+    )
     .post(
       "/login",
       async ({ body, headers, cookie, status }) => {
@@ -136,6 +167,7 @@ export const AuthController = (service: AuthService) =>
               id: result.admin.id,
               name: result.admin.name,
               email: result.admin.email,
+              role: result.admin.role,
             },
           },
         };
@@ -151,6 +183,7 @@ export const AuthController = (service: AuthService) =>
                 id: t.String(),
                 name: t.String(),
                 email: t.String(),
+                role: t.Union([t.String(), t.Null()]),
               }),
             }),
           ),

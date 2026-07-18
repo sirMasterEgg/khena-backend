@@ -10,6 +10,7 @@ import {
 } from "../models/administrator-session.model";
 import { permissions } from "../models/permission.model";
 import { rolePermissions } from "../models/role-permission.model";
+import { roles } from "../models/role.model";
 import { db } from "../utils/db";
 
 export class AuthRepository {
@@ -29,6 +30,41 @@ export class AuthRepository {
       .select()
       .from(administrators)
       .where(eq(administrators.id, id))
+      .limit(1);
+    return result[0];
+  }
+
+  // Ambil administrator beserta nama role via leftJoin (roleId nullable, jadi
+  // admin tanpa role tetap kebaca dengan role = null).
+  async findAdministratorWithRoleById(id: string) {
+    const result = await db
+      .select({
+        id: administrators.id,
+        name: administrators.name,
+        email: administrators.email,
+        role: roles.name,
+      })
+      .from(administrators)
+      .leftJoin(roles, eq(administrators.roleId, roles.id))
+      .where(eq(administrators.id, id))
+      .limit(1);
+    return result[0];
+  }
+
+  // Varian by email untuk login: sertakan password agar bisa diverifikasi
+  // dalam satu query (tanpa query kedua untuk role).
+  async findAdministratorWithRoleByEmail(email: string) {
+    const result = await db
+      .select({
+        id: administrators.id,
+        name: administrators.name,
+        email: administrators.email,
+        password: administrators.password,
+        role: roles.name,
+      })
+      .from(administrators)
+      .leftJoin(roles, eq(administrators.roleId, roles.id))
+      .where(eq(administrators.email, email))
       .limit(1);
     return result[0];
   }

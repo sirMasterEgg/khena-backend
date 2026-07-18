@@ -1,9 +1,9 @@
-import { signAccessToken } from "../auth/access-token";
+import { signAccessToken, verifyAccessToken } from "../auth/access-token";
 import { generateCsrfToken } from "../auth/csrf";
 import { generateRefreshToken, hashToken } from "../auth/refresh-token";
 import { authConfig } from "../config/auth.config";
 import type { AuthRepository } from "../repositories/auth.repository";
-import { BadRequestError } from "../utils/errors";
+import { BadRequestError, UnauthorizedError } from "../utils/errors";
 import { logger } from "../utils/logger";
 
 interface LoginInput {
@@ -37,7 +37,7 @@ export class AuthService {
   }
 
   async login(input: LoginInput) {
-    const admin = await this.repo.findAdministratorByEmail(input.email);
+    const admin = await this.repo.findAdministratorWithRoleByEmail(input.email);
     if (!admin) {
       // Log email untuk troubleshooting; JANGAN pernah log password/token.
       logger.warn({ email: input.email }, "login failed: unknown email");
@@ -84,5 +84,20 @@ export class AuthService {
       await this.repo.revokeSession(session.id);
     }
     // Idempotent: selalu sukses walau token tidak ditemukan.
+  }
+
+  async me(accessToken: string | undefined) {
+    const payload = await verifyAccessToken(accessToken);
+    if (!payload) throw new UnauthorizedError();
+
+    const session = await this.repo.findSessionById(payload.sessionId);
+    if (!session || session.revoked || session.expiredAt <= new Date()) {
+      throw new UnauthorizedError();
+    }
+
+    const admin = await this.repo.findAdministratorWithRoleById(payload.sub);
+    if (!admin) throw new UnauthorizedError();
+
+    return admin; // { id, name, email, role }
   }
 }
