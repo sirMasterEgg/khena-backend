@@ -3,9 +3,14 @@ import type { RoomTypeRepository } from "../repositories/room-type.repository";
 import { NotFoundError } from "../utils/errors";
 import { logger } from "../utils/logger";
 
-type CategorySort = "order" | "category" | "createdAt";
+type CategorySort = "name" | "displayOrder" | "roomType" | "createdAt";
 
-const allowedSorts: CategorySort[] = ["order", "category", "createdAt"];
+const allowedSorts: CategorySort[] = [
+  "name",
+  "displayOrder",
+  "roomType",
+  "createdAt",
+];
 
 interface CreateCategoryInput {
   roomTypeId: string;
@@ -67,6 +72,34 @@ export class CategoryService {
     return {
       data: rows,
       meta: { page, limit, total, totalPages },
+    };
+  }
+
+  async getCategoryDetail(id: string) {
+    const category = await this.categoryRepo.findById(id);
+    if (!category) {
+      throw new NotFoundError("category not found");
+    }
+    const roomType = await this.roomTypeRepo.findById(category.roomTypeId);
+    if (!roomType) {
+      throw new NotFoundError("room type not found");
+    }
+
+    // Buang roomTypeId, ganti dengan objek roomType.
+    const { roomTypeId: _roomTypeId, ...rest } = category;
+    return {
+      ...rest,
+      roomType: { id: roomType.id, roomType: roomType.roomType },
+    };
+  }
+
+  async getCategoryStats() {
+    const stats = await this.categoryRepo.stats();
+    return {
+      totalCategories: stats.total,
+      publishedCategories: stats.published,
+      draftCategories: stats.draft,
+      roomGroups: stats.roomGroups,
     };
   }
 
