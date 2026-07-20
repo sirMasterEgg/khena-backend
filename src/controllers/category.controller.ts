@@ -7,7 +7,11 @@ import {
   listEnvelope,
   publicErrorResponses,
 } from "../models/api-schema";
-import { categoryModel } from "../models/response.model";
+import {
+  categoryDetailModel,
+  categoryModel,
+  categoryStatsModel,
+} from "../models/response.model";
 import type { CategoryService } from "../services/category.service";
 
 const categoryBody = t.Object({
@@ -23,8 +27,9 @@ const listQuery = t.Object({
   roomTypeId: t.Optional(t.String()),
   sort: t.Optional(
     t.Union([
-      t.Literal("order"),
-      t.Literal("category"),
+      t.Literal("name"),
+      t.Literal("displayOrder"),
+      t.Literal("roomType"),
       t.Literal("createdAt"),
     ]),
   ),
@@ -71,6 +76,33 @@ export const CategoryController = (service: CategoryService) =>
       {
         query: listQuery,
         response: { 200: listEnvelope(categoryModel), ...publicErrorResponses },
+      },
+    )
+    .get(
+      "/stats",
+      async () => {
+        const data = await service.getCategoryStats();
+        return { data };
+      },
+      {
+        response: {
+          200: dataEnvelope(categoryStatsModel),
+          ...publicErrorResponses,
+        },
+      },
+    )
+    .get(
+      "/:id",
+      async ({ params }) => {
+        const data = await service.getCategoryDetail(params.id);
+        return { data };
+      },
+      {
+        params: idParams,
+        response: {
+          200: dataEnvelope(categoryDetailModel),
+          ...publicErrorResponses,
+        },
       },
     )
     .put(

@@ -26,6 +26,24 @@ export const categoryModel = t.Object({
   ...auditColumns,
 });
 
+/** Detail satu kategori beserta room type-nya (GET /api/categories/:id). */
+export const categoryDetailModel = t.Object({
+  id: t.String(),
+  category: t.String(),
+  order: t.Number(),
+  status: t.String(),
+  roomType: t.Object({ id: t.String(), roomType: t.String() }),
+  ...auditColumns,
+});
+
+/** Agregat kategori untuk dashboard (GET /api/categories/stats). */
+export const categoryStatsModel = t.Object({
+  totalCategories: t.Number(),
+  publishedCategories: t.Number(),
+  draftCategories: t.Number(),
+  roomGroups: t.Number(),
+});
+
 export const collectionModel = t.Object({
   id: t.String(),
   name: t.String(),
