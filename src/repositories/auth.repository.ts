@@ -11,6 +11,7 @@ import {
 import { permissions } from "../models/permission.model";
 import { roles } from "../models/role.model";
 import { rolePermissions } from "../models/role-permission.model";
+import { stampCreate, stampUpdate } from "../utils/audit";
 import { db } from "../utils/db";
 
 export class AuthRepository {
@@ -74,7 +75,7 @@ export class AuthRepository {
   ): Promise<AdministratorSession> {
     const result = await db
       .insert(administratorSessions)
-      .values(data)
+      .values(stampCreate(data))
       .returning();
     const row = result[0];
     if (!row) {
@@ -106,7 +107,7 @@ export class AuthRepository {
   async revokeSession(id: string): Promise<void> {
     await db
       .update(administratorSessions)
-      .set({ revoked: true })
+      .set(stampUpdate({ revoked: true }))
       .where(eq(administratorSessions.id, id));
   }
 

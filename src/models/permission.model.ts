@@ -1,4 +1,5 @@
 import { pgTable, text, uuid, varchar } from "drizzle-orm/pg-core";
+import { auditColumns } from "./audit-columns";
 
 export const permissions = pgTable("permissions", {
   id: uuid("id")
@@ -8,6 +9,7 @@ export const permissions = pgTable("permissions", {
   module: varchar("module", { length: 255 }),
   action: varchar("action", { length: 255 }),
   description: text("description"),
+  ...auditColumns,
 });
 
 export type Permission = typeof permissions.$inferSelect;

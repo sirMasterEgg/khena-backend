@@ -57,6 +57,13 @@
       "when": 1784528881666,
       "tag": "0007_remove_media_categories_table",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784542781089,
+      "tag": "0008_add_audit_column_to_table",
+      "breakpoints": true
     }
   ]
 }

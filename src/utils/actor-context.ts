@@ -9,14 +9,37 @@ import { AsyncLocalStorage } from "node:async_hooks";
  *
  * Ini BUKAN state global yang di-share antar request: tiap request punya
  * async context sendiri, jadi nilainya terisolasi per request.
+ *
+ * Yang disimpan adalah *object holder*, bukan string. Alasannya: `enterWith()`
+ * hanya berlaku untuk async context saat ini dan turunannya. Kalau dipanggil
+ * dari dalam `resolve()` (context anak), nilainya hilang begitu kontrol kembali
+ * ke route handler (context induk). Dengan holder, wadahnya dipasang sekali di
+ * awal request lewat hook sinkron, lalu isinya cukup DIMUTASI setelah auth —
+ * mutasi terlihat oleh induk karena store menyimpan referensi object.
  */
-const actorStore = new AsyncLocalStorage<string>();
+type ActorHolder = { name: string | null };
+
+const actorStore = new AsyncLocalStorage<ActorHolder>();
 
 /**
- * Set actor untuk sisa async context saat ini (dipanggil sekali di auth plugin).
+ * Pasang wadah actor di awal request.
+ *
+ * WAJIB dipanggil dari hook SINKRON (`onRequest` tanpa async/await). Begitu
+ * hook-nya jadi async, `enterWith` kembali kehilangan nilai di context induk.
+ */
+export function initActor(): void {
+  actorStore.enterWith({ name: null });
+}
+
+/**
+ * Isi actor setelah auth berhasil. Memutasi wadah yang sudah dipasang
+ * {@link initActor}, bukan `enterWith` lagi.
  */
 export function setActor(name: string): void {
-  actorStore.enterWith(name);
+  const holder = actorStore.getStore();
+  if (holder) {
+    holder.name = name;
+  }
 }
 
 /**
@@ -24,7 +47,7 @@ export function setActor(name: string): void {
  * (script/seeder/cron) yang butuh mengisi audit columns.
  */
 export function runWithActor<T>(name: string, fn: () => T): T {
-  return actorStore.run(name, fn);
+  return actorStore.run({ name }, fn);
 }
 
 /**
@@ -32,5 +55,5 @@ export function runWithActor<T>(name: string, fn: () => T): T {
  * (mis. seeder/job yang tidak mengeset actor).
  */
 export function getActor(): string | null {
-  return actorStore.getStore() ?? null;
+  return actorStore.getStore()?.name ?? null;
 }

@@ -9,11 +9,17 @@ import { getActor } from "./actor-context";
  * pemanggil masih bisa override bila perlu.
  */
 
-/** Isi `createdBy` dari actor saat ini untuk satu row insert. */
+/**
+ * Isi `createdBy` + `updatedBy` dari actor saat ini untuk satu row insert.
+ *
+ * `updatedBy` ikut diisi saat create supaya konsisten dengan `updatedAt` yang
+ * default-nya `now()` sejak baris dibuat — jadi tidak ada baris dengan
+ * updated_at terisi tapi updated_by kosong.
+ */
 export function stampCreate<T extends object>(
   data: T,
-): T & { createdBy: string | null } {
-  return { createdBy: getActor(), ...data };
+): T & { createdBy: string | null; updatedBy: string | null } {
+  return { createdBy: getActor(), updatedBy: getActor(), ...data };
 }
 
 /** Isi `updatedAt` + `updatedBy` dari actor saat ini untuk satu row update. */
