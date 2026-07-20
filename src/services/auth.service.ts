@@ -3,6 +3,7 @@ import { generateCsrfToken } from "../auth/csrf";
 import { generateRefreshToken, hashToken } from "../auth/refresh-token";
 import { authConfig } from "../config/auth.config";
 import type { AuthRepository } from "../repositories/auth.repository";
+import { runWithActor } from "../utils/actor-context";
 import { BadRequestError, UnauthorizedError } from "../utils/errors";
 import { logger } from "../utils/logger";
 
@@ -14,6 +15,17 @@ interface LoginInput {
 
 export class AuthService {
   constructor(private readonly repo: AuthRepository) {}
+
+  /**
+   * Rute login/refresh/logout TIDAK memakai `requirePermission`, jadi authPlugin
+   * tidak pernah mengeset actor untuk request-nya. Tanpa ini audit columns di
+   * administrator_sessions akan selalu NULL. Email diambil dari administrator
+   * pemilik sesi supaya jejaknya konsisten dengan actor di rute ter-guard.
+   */
+  private async actorEmailOf(administratorId: string): Promise<string> {
+    const admin = await this.repo.findAdministratorById(administratorId);
+    return admin?.email ?? "system:auth";
+  }
 
   private async issueSession(
     administratorId: string,
@@ -50,7 +62,9 @@ export class AuthService {
       throw new BadRequestError("invalid credentials");
     }
 
-    const issued = await this.issueSession(admin.id, input.deviceInfo);
+    const issued = await runWithActor(admin.email, () =>
+      this.issueSession(admin.id, input.deviceInfo),
+    );
     // Sukses login: catat administratorId untuk audit. Session id sensitif —
     // simpan hash-nya, bukan nilai aslinya (AWS best practice #4).
     logger.info(
@@ -71,9 +85,15 @@ export class AuthService {
       throw new BadRequestError("invalid refresh token");
     }
 
-    // Rotasi: refresh token lama langsung tidak berlaku (mencegah replay).
-    await this.repo.revokeSession(session.id);
-    return await this.issueSession(session.administratorId, session.deviceInfo);
+    const actorEmail = await this.actorEmailOf(session.administratorId);
+    return await runWithActor(actorEmail, async () => {
+      // Rotasi: refresh token lama langsung tidak berlaku (mencegah replay).
+      await this.repo.revokeSession(session.id);
+      return await this.issueSession(
+        session.administratorId,
+        session.deviceInfo,
+      );
+    });
   }
 
   async logout(refreshTokenRaw: string) {
@@ -81,7 +101,8 @@ export class AuthService {
       hashToken(refreshTokenRaw),
     );
     if (session) {
-      await this.repo.revokeSession(session.id);
+      const actorEmail = await this.actorEmailOf(session.administratorId);
+      await runWithActor(actorEmail, () => this.repo.revokeSession(session.id));
     }
     // Idempotent: selalu sukses walau token tidak ditemukan.
   }
