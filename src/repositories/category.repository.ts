@@ -121,6 +121,19 @@ export class CategoryRepository {
     };
   }
 
+  async countActiveByRoomTypeId(roomTypeId: string): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(categories)
+      .where(
+        and(
+          eq(categories.roomTypeId, roomTypeId),
+          isNull(categories.deletedAt),
+        ),
+      );
+    return Number(result[0]?.count ?? 0);
+  }
+
   async update(id: string, data: Partial<NewCategory>): Promise<Category> {
     const result = await db
       .update(categories)
