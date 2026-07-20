@@ -1,4 +1,5 @@
 import { pgTable, text, uuid, varchar } from "drizzle-orm/pg-core";
+import { auditColumns } from "./audit-columns";
 import { roles } from "./role.model";
 
 export const administrators = pgTable("administrators", {
@@ -9,6 +10,7 @@ export const administrators = pgTable("administrators", {
   email: varchar("email", { length: 255 }).notNull().unique(),
   password: text("password").notNull(),
   roleId: uuid("role_id").references(() => roles.id),
+  ...auditColumns,
 });
 
 export type Administrator = typeof administrators.$inferSelect;

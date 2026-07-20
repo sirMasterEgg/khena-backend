@@ -1,10 +1,5 @@
-import {
-  pgTable,
-  primaryKey,
-  timestamp,
-  uuid,
-  varchar,
-} from "drizzle-orm/pg-core";
+import { pgTable, primaryKey, uuid } from "drizzle-orm/pg-core";
+import { auditColumns } from "./audit-columns";
 import { permissions } from "./permission.model";
 import { roles } from "./role.model";
 
@@ -17,10 +12,7 @@ export const rolePermissions = pgTable(
     permissionId: uuid("permission_id")
       .notNull()
       .references(() => permissions.id),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
-    createdBy: varchar("created_by", { length: 255 }).notNull(),
-    updatedBy: varchar("updated_by", { length: 255 }).notNull(),
+    ...auditColumns,
   },
   (table) => [primaryKey({ columns: [table.roleId, table.permissionId] })],
 );
