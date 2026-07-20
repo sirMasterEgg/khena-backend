@@ -78,12 +78,6 @@ export const folderModel = t.Object({
   ...auditColumns,
 });
 
-export const mediaCategoryModel = t.Object({
-  id: t.String(),
-  name: t.String(),
-  ...auditColumns,
-});
-
 export const mediaModel = t.Object({
   id: t.String(),
   folderId: nullableString,
@@ -104,7 +98,6 @@ export const mediaModel = t.Object({
   altText: nullableString,
   metadata: nullableString,
   status: t.String(),
-  mediaCategoryId: nullableString,
   ...auditColumns,
 });
 

@@ -10,13 +10,7 @@ import {
   sql,
 } from "drizzle-orm";
 import { type Folder, folders, type NewFolder } from "../models/folder.model";
-import {
-  type Media,
-  type MediaCategory,
-  media,
-  mediaCategories,
-  type NewMedia,
-} from "../models/media.model";
+import { type Media, media, type NewMedia } from "../models/media.model";
 import { stampCreate, stampDelete, stampUpdate } from "../utils/audit";
 import { db, type Tx } from "../utils/db";
 
@@ -25,7 +19,6 @@ type DbOrTx = typeof db | Tx;
 export interface MediaListFilter {
   folderId: string | null; // diabaikan jika search terisi
   search?: string;
-  mediaCategoryId?: string;
   type?: string;
   sort: "name" | "createdAt" | "sizeBytes";
   order: "asc" | "desc";
@@ -170,10 +163,6 @@ export class MediaRepository {
       );
     }
 
-    if (filter.mediaCategoryId) {
-      conditions.push(eq(media.mediaCategoryId, filter.mediaCategoryId));
-    }
-
     if (filter.type) {
       conditions.push(eq(media.type, filter.type));
     }
@@ -248,24 +237,5 @@ export class MediaRepository {
       .update(media)
       .set(stampDelete())
       .where(inArray(media.folderId, folderIds));
-  }
-
-  // ---- media categories ----
-
-  async findMediaCategoryById(id: string): Promise<MediaCategory | undefined> {
-    const result = await db
-      .select()
-      .from(mediaCategories)
-      .where(and(eq(mediaCategories.id, id), isNull(mediaCategories.deletedAt)))
-      .limit(1);
-    return result[0];
-  }
-
-  async listMediaCategories(): Promise<MediaCategory[]> {
-    return await db
-      .select()
-      .from(mediaCategories)
-      .where(isNull(mediaCategories.deletedAt))
-      .orderBy(asc(mediaCategories.name));
   }
 }

@@ -50,6 +50,13 @@
       "when": 1782963184083,
       "tag": "0006_add_auth_feature_table",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784528881666,
+      "tag": "0007_remove_media_categories_table",
+      "breakpoints": true
     }
   ]
 }
