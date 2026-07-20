@@ -9,8 +9,8 @@ import {
   type NewAdministratorSession,
 } from "../models/administrator-session.model";
 import { permissions } from "../models/permission.model";
-import { rolePermissions } from "../models/role-permission.model";
 import { roles } from "../models/role.model";
+import { rolePermissions } from "../models/role-permission.model";
 import { db } from "../utils/db";
 
 export class AuthRepository {
