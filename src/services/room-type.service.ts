@@ -1,5 +1,6 @@
+import type { CategoryRepository } from "../repositories/category.repository";
 import type { RoomTypeRepository } from "../repositories/room-type.repository";
-import { NotFoundError } from "../utils/errors";
+import { ConflictError, NotFoundError } from "../utils/errors";
 import { logger } from "../utils/logger";
 
 interface CreateRoomTypeInput {
@@ -12,7 +13,10 @@ interface ListRoomTypesInput {
 }
 
 export class RoomTypeService {
-  constructor(private readonly repo: RoomTypeRepository) {}
+  constructor(
+    private readonly repo: RoomTypeRepository,
+    private readonly categoryRepo: CategoryRepository,
+  ) {}
 
   async createRoomType(input: CreateRoomTypeInput) {
     const created = await this.repo.create({
@@ -37,6 +41,14 @@ export class RoomTypeService {
     if (!existing) {
       throw new NotFoundError("room type not found");
     }
+
+    const usedByCount = await this.categoryRepo.countActiveByRoomTypeId(id);
+    if (usedByCount > 0) {
+      throw new ConflictError(
+        `room type is still used by ${usedByCount} category(s)`,
+      );
+    }
+
     await this.repo.softDelete(id);
     logger.info({ roomTypeId: id }, "room type deleted");
   }
