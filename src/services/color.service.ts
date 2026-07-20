@@ -62,6 +62,14 @@ export class ColorService {
     };
   }
 
+  async getColorById(id: string) {
+    const color = await this.repo.findById(id);
+    if (!color) {
+      throw new NotFoundError("color not found");
+    }
+    return color;
+  }
+
   async updateColor(id: string, input: UpdateColorInput) {
     const existing = await this.repo.findById(id);
     if (!existing) {

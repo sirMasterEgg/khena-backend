@@ -7,7 +7,7 @@ import {
   listEnvelope,
   publicErrorResponses,
 } from "../models/api-schema";
-import { finishModel } from "../models/response.model";
+import { finishModel, finishWithColorsModel } from "../models/response.model";
 import type { FinishService } from "../services/finish.service";
 
 const createFinishBody = t.Object({
@@ -50,7 +50,10 @@ export const FinishController = (service: FinishService) =>
       },
       {
         query: listQuery,
-        response: { 200: listEnvelope(finishModel), ...publicErrorResponses },
+        response: {
+          200: listEnvelope(finishWithColorsModel),
+          ...publicErrorResponses,
+        },
       },
     )
     .delete(

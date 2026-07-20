@@ -60,6 +60,23 @@ export const finishModel = t.Object({
   ...auditColumns,
 });
 
+/** Ringkasan color yang di-nest di dalam finish (GET /api/finishes). */
+export const finishColorModel = t.Object({
+  id: t.String(),
+  name: t.String(),
+  hexCode: t.String(),
+  swatchPhoto: nullableString,
+  notes: nullableString,
+});
+
+/** Finish beserta color miliknya (GET /api/finishes). */
+export const finishWithColorsModel = t.Object({
+  id: t.String(),
+  name: t.String(),
+  colors: t.Array(finishColorModel),
+  ...auditColumns,
+});
+
 export const colorModel = t.Object({
   id: t.String(),
   name: t.String(),

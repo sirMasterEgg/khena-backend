@@ -1,3 +1,4 @@
+import type { ColorRepository } from "../repositories/color.repository";
 import type { FinishRepository } from "../repositories/finish.repository";
 import { ConflictError, NotFoundError } from "../utils/errors";
 import { logger } from "../utils/logger";
@@ -11,8 +12,19 @@ interface ListFinishesInput {
   limit: number;
 }
 
+interface FinishColor {
+  id: string;
+  name: string;
+  hexCode: string;
+  swatchPhoto: string | null;
+  notes: string | null;
+}
+
 export class FinishService {
-  constructor(private readonly repo: FinishRepository) {}
+  constructor(
+    private readonly repo: FinishRepository,
+    private readonly colorRepo: ColorRepository,
+  ) {}
 
   async createFinish(input: CreateFinishInput) {
     const existing = await this.repo.findByName(input.finish);
@@ -29,9 +41,35 @@ export class FinishService {
   async listFinishes(input: ListFinishesInput) {
     const { page, limit } = input;
     const { rows, total } = await this.repo.list(page, limit);
+
+    // Ambil color untuk seluruh finish di halaman ini dalam satu query,
+    // lalu gabungkan di memori supaya tidak N+1.
+    const relatedColors = await this.colorRepo.findByFinishIds(
+      rows.map((finish) => finish.id),
+    );
+
+    const colorsByFinishId = new Map<string, FinishColor[]>();
+    for (const color of relatedColors) {
+      if (!color.finishesId) {
+        continue;
+      }
+      const bucket = colorsByFinishId.get(color.finishesId) ?? [];
+      bucket.push({
+        id: color.id,
+        name: color.name,
+        hexCode: color.hexCode,
+        swatchPhoto: color.swatchPhoto,
+        notes: color.notes,
+      });
+      colorsByFinishId.set(color.finishesId, bucket);
+    }
+
     const totalPages = Math.ceil(total / limit);
     return {
-      data: rows,
+      data: rows.map((finish) => ({
+        ...finish,
+        colors: colorsByFinishId.get(finish.id) ?? [],
+      })),
       meta: { page, limit, total, totalPages },
     };
   }
@@ -41,6 +79,14 @@ export class FinishService {
     if (!existing) {
       throw new NotFoundError("finish not found");
     }
+
+    const usedByCount = await this.colorRepo.countActiveByFinishId(id);
+    if (usedByCount > 0) {
+      throw new ConflictError(
+        `finish is still used by ${usedByCount} color(s)`,
+      );
+    }
+
     await this.repo.softDelete(id);
     logger.info({ finishId: id }, "finish deleted");
   }
