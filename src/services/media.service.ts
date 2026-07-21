@@ -1,3 +1,9 @@
+import { fileTypeFromBuffer } from "file-type";
+import {
+  formatBytes,
+  MAX_DIRECT_UPLOAD_BYTES,
+  MAX_MULTIPART_UPLOAD_BYTES,
+} from "../config/upload.config";
 import type { NewMedia } from "../models/media.model";
 import type {
   MediaListFilter,
@@ -93,6 +99,50 @@ function deriveType(mimeType: string): string {
   return "document";
 }
 
+/**
+ * MIME type yang boleh diupload. Selain ini ditolak — daftar putih, bukan
+ * daftar hitam, supaya format baru harus disetujui secara sadar.
+ */
+const ALLOWED_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "application/pdf",
+  "video/mp4",
+]);
+
+/**
+ * Pastikan isi file benar-benar sesuai tipe yang diklaim klien. MIME dan nama
+ * file dari klien tidak bisa dipercaya, jadi yang dipakai untuk menyimpan
+ * adalah hasil deteksi dari isi file.
+ */
+async function verifyFileContent(
+  fileName: string,
+  claimedType: string,
+  body: Buffer | Uint8Array,
+) {
+  const detected = await fileTypeFromBuffer(body);
+  if (!detected) {
+    throw new BadRequestError(
+      `file content of "${fileName}" is not a supported file type`,
+    );
+  }
+  if (!ALLOWED_MIME_TYPES.has(detected.mime)) {
+    throw new BadRequestError(`file type "${detected.mime}" is not allowed`);
+  }
+  // Browser bisa mengirim image/jpg maupun image/jpeg untuk file yang sama,
+  // jadi yang dibandingkan cukup kategori besarnya.
+  const claimedCategory = claimedType.split("/")[0];
+  const detectedCategory = detected.mime.split("/")[0];
+  if (claimedCategory !== detectedCategory) {
+    throw new BadRequestError(
+      `file "${fileName}" claims to be ${claimedType} but its content is ${detected.mime}`,
+    );
+  }
+  return detected;
+}
+
 /** Extract a lowercase extension (without dot) from a file name. */
 function extractExtension(fileName: string): string | null {
   const lastDot = fileName.lastIndexOf(".");
@@ -167,9 +217,23 @@ export class MediaService {
 
     const results = [];
     for (const file of input.files) {
+      // File kosong dicek paling awal: tidak punya signature apa pun, jadi
+      // verifikasi tipe di bawah tidak akan memberi pesan yang berguna.
+      if (file.body.byteLength === 0) {
+        throw new BadRequestError(`file "${file.name}" is empty`);
+      }
+
+      if (file.body.byteLength > MAX_DIRECT_UPLOAD_BYTES) {
+        throw new BadRequestError(
+          `file "${file.name}" exceeds the maximum size of ${formatBytes(MAX_DIRECT_UPLOAD_BYTES)}`,
+        );
+      }
+
+      const detected = await verifyFileContent(file.name, file.type, file.body);
+
       const uploaded = await this.fileService.uploadFile({
         fileName: file.name,
-        contentType: file.type,
+        contentType: detected.mime,
         body: file.body,
         folderPrefix,
       });
@@ -178,9 +242,9 @@ export class MediaService {
         folderId,
         name: sanitizeName(file.name),
         originalName: file.name,
-        type: deriveType(file.type),
-        mimeType: file.type,
-        extension: extractExtension(file.name),
+        type: deriveType(detected.mime),
+        mimeType: detected.mime,
+        extension: detected.ext,
         sizeBytes: file.body.byteLength,
         storageProvider: uploaded.provider,
         bucket: uploaded.bucket,
@@ -206,6 +270,25 @@ export class MediaService {
   }
 
   async initMultipart(input: InitMultipartInput) {
+    if (input.file.size <= 0) {
+      throw new BadRequestError(`file "${input.file.name}" is empty`);
+    }
+
+    if (input.file.size > MAX_MULTIPART_UPLOAD_BYTES) {
+      throw new BadRequestError(
+        `file "${input.file.name}" exceeds the maximum size of ${formatBytes(MAX_MULTIPART_UPLOAD_BYTES)}`,
+      );
+    }
+
+    // Isi file belum ada di tahap ini (klien baru mengumumkan niatnya), jadi
+    // yang bisa dicek baru MIME yang diklaim. Verifikasi isi sesungguhnya
+    // dilakukan saat part pertama masuk.
+    if (!ALLOWED_MIME_TYPES.has(input.file.type)) {
+      throw new BadRequestError(
+        `file type "${input.file.type}" is not allowed`,
+      );
+    }
+
     const path = normalizePath(input.path);
     const folderId = await this.resolveFolderId(path);
     const folderPrefix = isRootPath(path) ? undefined : path.slice(1);
@@ -248,6 +331,13 @@ export class MediaService {
       throw new NotFoundError("media not found");
     }
 
+    // Signature file selalu ada di byte-byte awal, jadi cukup part pertama
+    // yang perlu diperiksa. Kalau gagal, klien membatalkan lewat endpoint
+    // `abort` yang sudah ada.
+    if (input.partNumber === 1) {
+      await verifyFileContent(file.name, file.mimeType ?? "", input.body);
+    }
+
     // objectKey is taken from the DB, never trusted from the client.
     const eTag = await this.fileService.uploadPart(
       file.objectKey,
@@ -273,6 +363,16 @@ export class MediaService {
     );
 
     const metadata = await this.fileService.getFileMetadata(file.objectKey);
+
+    // Ukuran di init hanya klaim klien; yang ini ukuran sebenarnya di storage.
+    if (metadata.sizeBytes > MAX_MULTIPART_UPLOAD_BYTES) {
+      await this.fileService.deleteFile(file.objectKey);
+      await this.repo.softDeleteMedia(file.id);
+      throw new BadRequestError(
+        `uploaded file exceeds the maximum size of ${formatBytes(MAX_MULTIPART_UPLOAD_BYTES)}`,
+      );
+    }
+
     const updated = await this.repo.updateMedia(file.id, {
       status: "ready",
       sizeBytes: metadata.sizeBytes || file.sizeBytes,
@@ -424,8 +524,15 @@ export class MediaService {
         patch.originalName = fileInput.name;
         patch.extension = extractExtension(fileInput.name);
       }
-      // Sama halnya `type`: kategori media diturunkan dari mime type.
+      // Sama halnya `type`: kategori media diturunkan dari mime type. Isi file
+      // tidak ikut berubah lewat PATCH, jadi minimal batasi ke daftar izin
+      // supaya tidak bisa diubah jadi tipe sembarangan.
       if (fileInput.type !== undefined) {
+        if (!ALLOWED_MIME_TYPES.has(fileInput.type)) {
+          throw new BadRequestError(
+            `file type "${fileInput.type}" is not allowed`,
+          );
+        }
         patch.type = deriveType(fileInput.type);
         patch.mimeType = fileInput.type;
       }
