@@ -55,6 +55,17 @@ export const ColorController = (service: ColorService) =>
         response: { 200: listEnvelope(colorModel), ...publicErrorResponses },
       },
     )
+    .get(
+      "/:id",
+      async ({ params }) => {
+        const data = await service.getColorById(params.id);
+        return { data };
+      },
+      {
+        params: idParams,
+        response: { 200: dataEnvelope(colorModel), ...publicErrorResponses },
+      },
+    )
     .put(
       "/:id",
       async ({ params, body }) => {

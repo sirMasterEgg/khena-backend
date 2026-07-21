@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { type Color, colors, type NewColor } from "../models/color.model";
 import { type Finish, finishes } from "../models/finish.model";
 import { type Media, media } from "../models/media.model";
@@ -63,6 +63,28 @@ export class ColorRepository {
     const total = Number(countResult[0]?.count ?? 0);
 
     return { rows, total };
+  }
+
+  async findByFinishIds(finishIds: string[]): Promise<Color[]> {
+    // `inArray` menghasilkan SQL tidak valid untuk array kosong.
+    if (finishIds.length === 0) {
+      return [];
+    }
+    return await db
+      .select()
+      .from(colors)
+      .where(
+        and(inArray(colors.finishesId, finishIds), isNull(colors.deletedAt)),
+      )
+      .orderBy(desc(colors.createdAt));
+  }
+
+  async countActiveByFinishId(finishId: string): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(colors)
+      .where(and(eq(colors.finishesId, finishId), isNull(colors.deletedAt)));
+    return Number(result[0]?.count ?? 0);
   }
 
   async findFinishById(id: string): Promise<Finish | undefined> {
