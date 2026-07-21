@@ -5,6 +5,7 @@ import type {
 import { db } from "../utils/db";
 import { ConflictError, NotFoundError } from "../utils/errors";
 import { logger } from "../utils/logger";
+import { toMediaResponse, toMediaResponseNullable } from "../utils/media-url";
 
 interface ProductVariantInput {
   id?: string;
@@ -258,14 +259,18 @@ export class ProductService {
       materials: product.materials,
       status: product.status,
       category: { id: product.categoryId, name: product.categoryName ?? "" },
-      productDimensionMedia: product.productDimensionMediaId
-        ? (mediaById.get(product.productDimensionMediaId) ?? null)
-        : null,
-      boxDimensionMedia: product.boxDimensionMediaId
-        ? (mediaById.get(product.boxDimensionMediaId) ?? null)
-        : null,
+      productDimensionMedia: toMediaResponseNullable(
+        product.productDimensionMediaId
+          ? mediaById.get(product.productDimensionMediaId)
+          : null,
+      ),
+      boxDimensionMedia: toMediaResponseNullable(
+        product.boxDimensionMediaId
+          ? mediaById.get(product.boxDimensionMediaId)
+          : null,
+      ),
       careInstructions,
-      media: showcaseMedia,
+      media: showcaseMedia.map(toMediaResponse),
       variants: details.map((d) => ({
         id: d.id,
         colorId: d.colorId,
@@ -275,7 +280,7 @@ export class ProductService {
         capitalPrice: d.capitalPrice,
         marketplacePrice: d.marketplacePrice,
         visibility: d.visibility,
-        images: imagesByDetailId.get(d.id) ?? [],
+        images: (imagesByDetailId.get(d.id) ?? []).map(toMediaResponse),
       })),
     };
   }

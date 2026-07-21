@@ -1,3 +1,4 @@
+import type { NewMedia } from "../models/media.model";
 import type {
   MediaListFilter,
   MediaRepository,
@@ -5,6 +6,7 @@ import type {
 import { db } from "../utils/db";
 import { BadRequestError, ConflictError, NotFoundError } from "../utils/errors";
 import { logger } from "../utils/logger";
+import { buildMediaUrl } from "../utils/media-url";
 import {
   isRootPath,
   joinPath,
@@ -22,6 +24,7 @@ interface UploadFileInput {
   name: string;
   type: string;
   size: number;
+  altText?: string | null;
 }
 
 interface UpdateFolderInput {
@@ -29,15 +32,20 @@ interface UpdateFolderInput {
   folderName: string;
 }
 
-interface UpdateFileInput {
-  path: string;
-  file: UploadFileInput;
+/**
+ * Body PATCH file: semua field opsional. Field yang tidak dikirim
+ * (`undefined`) tidak diubah nilainya di DB.
+ */
+interface PatchFileInput {
+  path?: string;
+  file?: Partial<UploadFileInput>;
 }
 
 interface UploadDirectFile {
   name: string;
   type: string;
   body: Buffer | Uint8Array;
+  altText?: string | null;
 }
 
 interface UploadDirectInput {
@@ -92,6 +100,12 @@ function extractExtension(fileName: string): string | null {
     return null;
   }
   return fileName.slice(lastDot + 1).toLowerCase();
+}
+
+/** String kosong / whitespace dianggap "tidak diisi" → null. */
+function normalizeAltText(value?: string | null): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
 }
 
 export class MediaService {
@@ -172,12 +186,15 @@ export class MediaService {
         bucket: uploaded.bucket,
         objectKey: uploaded.objectKey,
         status: "ready",
+        altText: normalizeAltText(file.altText),
       });
 
       results.push({
         mediaId: created.id,
         fileName: file.name,
         objectKey: uploaded.objectKey,
+        url: buildMediaUrl(uploaded.objectKey),
+        altText: created.altText,
       });
     }
 
@@ -212,12 +229,14 @@ export class MediaService {
       bucket: init.bucket,
       objectKey: init.objectKey,
       status: "pending",
+      altText: normalizeAltText(input.file.altText),
     });
 
     return {
       mediaId: created.id,
       uploadId: init.uploadId,
       objectKey: init.objectKey,
+      url: buildMediaUrl(init.objectKey),
       partSize: init.partSize,
       partCount: init.partCount,
     };
@@ -380,24 +399,55 @@ export class MediaService {
     return updated;
   }
 
-  async updateFile(id: string, input: UpdateFileInput) {
+  /**
+   * Update sebagian metadata file. Hanya field yang benar-benar dikirim
+   * client yang ikut ditulis ke DB — sisanya dibiarkan apa adanya.
+   */
+  async updateFile(id: string, input: PatchFileInput) {
     const file = await this.repo.findMediaById(id);
     if (!file) {
       throw new NotFoundError("file not found");
     }
 
-    const folderId = await this.resolveFolderId(input.path);
+    const patch: Partial<NewMedia> = {};
 
-    const updated = await this.repo.updateMedia(id, {
-      name: sanitizeName(input.file.name),
-      originalName: input.file.name,
-      type: deriveType(input.file.type),
-      mimeType: input.file.type,
-      extension: extractExtension(input.file.name),
-      sizeBytes: input.file.size,
-      folderId,
-    });
-    logger.info({ mediaId: id }, "media file updated");
+    if (input.path !== undefined) {
+      patch.folderId = await this.resolveFolderId(input.path);
+    }
+
+    const fileInput = input.file;
+    if (fileInput) {
+      // `name` ikut menentukan originalName & extension, jadi ketiganya
+      // diperbarui bersamaan supaya tidak jadi tidak konsisten.
+      if (fileInput.name !== undefined) {
+        patch.name = sanitizeName(fileInput.name);
+        patch.originalName = fileInput.name;
+        patch.extension = extractExtension(fileInput.name);
+      }
+      // Sama halnya `type`: kategori media diturunkan dari mime type.
+      if (fileInput.type !== undefined) {
+        patch.type = deriveType(fileInput.type);
+        patch.mimeType = fileInput.type;
+      }
+      if (fileInput.size !== undefined) {
+        patch.sizeBytes = fileInput.size;
+      }
+      if (fileInput.altText !== undefined) {
+        patch.altText = normalizeAltText(fileInput.altText);
+      }
+    }
+
+    // Body kosong → tidak ada yang perlu ditulis, jangan sentuh DB sama
+    // sekali supaya updatedAt tidak ikut berubah tanpa alasan.
+    if (Object.keys(patch).length === 0) {
+      return file;
+    }
+
+    const updated = await this.repo.updateMedia(id, patch);
+    logger.info(
+      { mediaId: id, fields: Object.keys(patch) },
+      "media file updated",
+    );
     return updated;
   }
 
@@ -463,6 +513,12 @@ export class MediaService {
     return { success: true };
   }
 
+  /**
+   * Hapus file secara soft delete saja. Objek fisik di storage sengaja
+   * TIDAK dihapus supaya masih bisa dipulihkan dan supaya URL lama tidak
+   * langsung mati. Pembersihan objek yatim (kalau nanti diperlukan)
+   * dilakukan terpisah, bukan di jalur request user.
+   */
   async deleteFile(id: string) {
     const file = await this.repo.findMediaById(id);
     if (!file) {
@@ -470,12 +526,6 @@ export class MediaService {
     }
 
     await this.repo.softDeleteMedia(file.id);
-
-    // Remove the physical object(s) from storage (idempotent).
-    await this.fileService.deleteFile(file.objectKey);
-    if (file.thumbnailKey) {
-      await this.fileService.deleteFile(file.thumbnailKey);
-    }
 
     logger.info({ mediaId: file.id }, "media file deleted");
     return { success: true };
