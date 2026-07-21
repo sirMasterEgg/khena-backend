@@ -5,6 +5,7 @@ import type {
 import { db } from "../utils/db";
 import { BadRequestError, ConflictError, NotFoundError } from "../utils/errors";
 import { logger } from "../utils/logger";
+import { buildMediaUrl } from "../utils/media-url";
 import {
   isRootPath,
   joinPath,
@@ -22,6 +23,7 @@ interface UploadFileInput {
   name: string;
   type: string;
   size: number;
+  altText?: string | null;
 }
 
 interface UpdateFolderInput {
@@ -38,6 +40,7 @@ interface UploadDirectFile {
   name: string;
   type: string;
   body: Buffer | Uint8Array;
+  altText?: string | null;
 }
 
 interface UploadDirectInput {
@@ -92,6 +95,12 @@ function extractExtension(fileName: string): string | null {
     return null;
   }
   return fileName.slice(lastDot + 1).toLowerCase();
+}
+
+/** String kosong / whitespace dianggap "tidak diisi" → null. */
+function normalizeAltText(value?: string | null): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
 }
 
 export class MediaService {
@@ -172,12 +181,15 @@ export class MediaService {
         bucket: uploaded.bucket,
         objectKey: uploaded.objectKey,
         status: "ready",
+        altText: normalizeAltText(file.altText),
       });
 
       results.push({
         mediaId: created.id,
         fileName: file.name,
         objectKey: uploaded.objectKey,
+        url: buildMediaUrl(uploaded.objectKey),
+        altText: created.altText,
       });
     }
 
@@ -212,12 +224,14 @@ export class MediaService {
       bucket: init.bucket,
       objectKey: init.objectKey,
       status: "pending",
+      altText: normalizeAltText(input.file.altText),
     });
 
     return {
       mediaId: created.id,
       uploadId: init.uploadId,
       objectKey: init.objectKey,
+      url: buildMediaUrl(init.objectKey),
       partSize: init.partSize,
       partCount: init.partCount,
     };
@@ -396,6 +410,10 @@ export class MediaService {
       extension: extractExtension(input.file.name),
       sizeBytes: input.file.size,
       folderId,
+      // Hanya ikut di-update kalau field-nya memang dikirim client.
+      ...(input.file.altText !== undefined && {
+        altText: normalizeAltText(input.file.altText),
+      }),
     });
     logger.info({ mediaId: id }, "media file updated");
     return updated;

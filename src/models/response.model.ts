@@ -107,6 +107,7 @@ export const mediaModel = t.Object({
   storageProvider: t.String(),
   bucket: t.String(),
   objectKey: t.String(),
+  url: t.String(),
   width: nullableNumber,
   height: nullableNumber,
   // kolom numeric Postgres dikembalikan sebagai string oleh driver.

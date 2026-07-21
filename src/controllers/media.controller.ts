@@ -8,6 +8,7 @@ import {
 } from "../models/api-schema";
 import { folderModel, mediaModel } from "../models/response.model";
 import type { MediaService } from "../services/media.service";
+import { toMediaResponse } from "../utils/media-url";
 
 // --- Response models untuk bentuk data khusus (bukan entitas DB langsung) ---
 const uploadDirectResult = t.Array(
@@ -15,6 +16,8 @@ const uploadDirectResult = t.Array(
     mediaId: t.String(),
     fileName: t.String(),
     objectKey: t.String(),
+    url: t.String(),
+    altText: t.Union([t.String(), t.Null()]),
   }),
 );
 
@@ -22,6 +25,7 @@ const multipartInitResult = t.Object({
   mediaId: t.String(),
   uploadId: t.String(),
   objectKey: t.String(),
+  url: t.String(),
   partSize: t.Number(),
   partCount: t.Number(),
 });
@@ -48,11 +52,15 @@ const fileMeta = t.Object({
   name: t.String({ minLength: 1 }),
   type: t.String({ minLength: 1 }),
   size: t.Number({ minimum: 0 }),
+  altText: t.Optional(t.String({ maxLength: 1000 })),
 });
 
 const uploadDirectBody = t.Object({
   path: t.String(),
   files: t.Files(),
+  // Sejajar per index dengan `files`. Kalau kirim 1 field saja, Elysia
+  // memberikan string (bukan array) — makanya bentuknya Union.
+  altTexts: t.Optional(t.Union([t.String(), t.Array(t.String())])),
 });
 
 const multipartInitBody = t.Object({
@@ -136,11 +144,21 @@ export const MediaController = (service: MediaService) =>
       "/upload-direct",
       async ({ body, set }) => {
         const files = Array.isArray(body.files) ? body.files : [body.files];
+
+        // Normalisasi ke array supaya bisa diakses per index; kalau client
+        // mengirim lebih sedikit altText daripada file, sisanya undefined.
+        const altTexts = body.altTexts
+          ? Array.isArray(body.altTexts)
+            ? body.altTexts
+            : [body.altTexts]
+          : [];
+
         const payload = await Promise.all(
-          files.map(async (f) => ({
+          files.map(async (f, index) => ({
             name: f.name,
             type: f.type,
             body: Buffer.from(await f.arrayBuffer()),
+            altText: altTexts[index],
           })),
         );
         const result = await service.uploadDirect({
@@ -199,7 +217,7 @@ export const MediaController = (service: MediaService) =>
       "/upload-multipart/complete",
       async ({ body }) => {
         const result = await service.completeMultipart(body);
-        return { data: result };
+        return { data: toMediaResponse(result) };
       },
       {
         body: multipartCompleteBody,
@@ -225,7 +243,7 @@ export const MediaController = (service: MediaService) =>
       "/files/:id",
       async ({ params }) => {
         const file = await service.getFile(params.id);
-        return { data: file };
+        return { data: toMediaResponse(file) };
       },
       {
         params: idParams,
@@ -250,7 +268,7 @@ export const MediaController = (service: MediaService) =>
       "/files/:id",
       async ({ params, body }) => {
         const file = await service.updateFile(params.id, body);
-        return { data: file };
+        return { data: toMediaResponse(file) };
       },
       {
         params: idParams,
@@ -264,7 +282,7 @@ export const MediaController = (service: MediaService) =>
       "/files/:id/object-key",
       async ({ params, body }) => {
         const file = await service.updateObjectKey(params.id, body.objectKey);
-        return { data: file };
+        return { data: toMediaResponse(file) };
       },
       {
         params: idParams,
@@ -324,7 +342,7 @@ export const MediaController = (service: MediaService) =>
           sort: query.sort ?? "createdAt",
           order: query.order ?? "desc",
         });
-        return { data: result };
+        return { data: { ...result, files: result.files.map(toMediaResponse) } };
       },
       {
         query: browseQuery,
@@ -341,7 +359,7 @@ export const MediaController = (service: MediaService) =>
           sort: query.sort ?? "createdAt",
           order: query.order ?? "desc",
         });
-        return { data: result };
+        return { data: { ...result, files: result.files.map(toMediaResponse) } };
       },
       {
         query: browseQuery,
