@@ -112,9 +112,11 @@ const multipartAbortBody = t.Object({
   uploadId: t.String({ minLength: 1 }),
 });
 
-const updateFileBody = t.Object({
-  path: t.String(),
-  file: fileMeta,
+// Versi partial dari `fileMeta` untuk PATCH — tiap field boleh tidak
+// dikirim, dan yang tidak dikirim tidak diubah nilainya.
+const patchFileBody = t.Object({
+  path: t.Optional(t.String()),
+  file: t.Optional(t.Partial(fileMeta)),
 });
 
 const objectKeyBody = t.Object({ objectKey: t.String({ minLength: 1 }) });
@@ -264,7 +266,7 @@ export const MediaController = (service: MediaService) =>
       },
       { params: idParams },
     )
-    .put(
+    .patch(
       "/files/:id",
       async ({ params, body }) => {
         const file = await service.updateFile(params.id, body);
@@ -272,7 +274,7 @@ export const MediaController = (service: MediaService) =>
       },
       {
         params: idParams,
-        body: updateFileBody,
+        body: patchFileBody,
         requirePermission: "media.update",
         csrf: true,
         response: { 200: dataEnvelope(mediaModel), ...errorResponses },

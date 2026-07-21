@@ -1,3 +1,4 @@
+import type { NewMedia } from "../models/media.model";
 import type {
   MediaListFilter,
   MediaRepository,
@@ -31,9 +32,13 @@ interface UpdateFolderInput {
   folderName: string;
 }
 
-interface UpdateFileInput {
-  path: string;
-  file: UploadFileInput;
+/**
+ * Body PATCH file: semua field opsional. Field yang tidak dikirim
+ * (`undefined`) tidak diubah nilainya di DB.
+ */
+interface PatchFileInput {
+  path?: string;
+  file?: Partial<UploadFileInput>;
 }
 
 interface UploadDirectFile {
@@ -394,28 +399,55 @@ export class MediaService {
     return updated;
   }
 
-  async updateFile(id: string, input: UpdateFileInput) {
+  /**
+   * Update sebagian metadata file. Hanya field yang benar-benar dikirim
+   * client yang ikut ditulis ke DB — sisanya dibiarkan apa adanya.
+   */
+  async updateFile(id: string, input: PatchFileInput) {
     const file = await this.repo.findMediaById(id);
     if (!file) {
       throw new NotFoundError("file not found");
     }
 
-    const folderId = await this.resolveFolderId(input.path);
+    const patch: Partial<NewMedia> = {};
 
-    const updated = await this.repo.updateMedia(id, {
-      name: sanitizeName(input.file.name),
-      originalName: input.file.name,
-      type: deriveType(input.file.type),
-      mimeType: input.file.type,
-      extension: extractExtension(input.file.name),
-      sizeBytes: input.file.size,
-      folderId,
-      // Hanya ikut di-update kalau field-nya memang dikirim client.
-      ...(input.file.altText !== undefined && {
-        altText: normalizeAltText(input.file.altText),
-      }),
-    });
-    logger.info({ mediaId: id }, "media file updated");
+    if (input.path !== undefined) {
+      patch.folderId = await this.resolveFolderId(input.path);
+    }
+
+    const fileInput = input.file;
+    if (fileInput) {
+      // `name` ikut menentukan originalName & extension, jadi ketiganya
+      // diperbarui bersamaan supaya tidak jadi tidak konsisten.
+      if (fileInput.name !== undefined) {
+        patch.name = sanitizeName(fileInput.name);
+        patch.originalName = fileInput.name;
+        patch.extension = extractExtension(fileInput.name);
+      }
+      // Sama halnya `type`: kategori media diturunkan dari mime type.
+      if (fileInput.type !== undefined) {
+        patch.type = deriveType(fileInput.type);
+        patch.mimeType = fileInput.type;
+      }
+      if (fileInput.size !== undefined) {
+        patch.sizeBytes = fileInput.size;
+      }
+      if (fileInput.altText !== undefined) {
+        patch.altText = normalizeAltText(fileInput.altText);
+      }
+    }
+
+    // Body kosong → tidak ada yang perlu ditulis, jangan sentuh DB sama
+    // sekali supaya updatedAt tidak ikut berubah tanpa alasan.
+    if (Object.keys(patch).length === 0) {
+      return file;
+    }
+
+    const updated = await this.repo.updateMedia(id, patch);
+    logger.info(
+      { mediaId: id, fields: Object.keys(patch) },
+      "media file updated",
+    );
     return updated;
   }
 
