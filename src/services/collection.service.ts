@@ -1,7 +1,9 @@
+import type { Collection } from "../models/collection.model";
 import type { CollectionRepository } from "../repositories/collection.repository";
 import { db } from "../utils/db";
 import { ConflictError, NotFoundError } from "../utils/errors";
 import { logger } from "../utils/logger";
+import { toMediaResponseNullable } from "../utils/media-url";
 
 type CollectionSort = "name" | "slug" | "createdAt";
 
@@ -59,6 +61,37 @@ export class CollectionService {
     }
   }
 
+  /** Ubah satu row collection jadi bentuk response (cover & banner → objek media). */
+  private async toResponse(row: Collection) {
+    const [mapped] = await this.toResponseList([row]);
+    if (!mapped) {
+      throw new Error("failed to map collection response");
+    }
+    return mapped;
+  }
+
+  /**
+   * Versi batch: cover & banner untuk seluruh baris diambil dalam satu query,
+   * lalu digabungkan di memori supaya tidak N+1.
+   */
+  private async toResponseList(rows: Collection[]) {
+    const mediaIds = rows
+      .flatMap((row) => [row.coverImage, row.bannerImage])
+      .filter((id): id is string => id !== null);
+    const mediaRows = await this.repo.findMediaByIds(mediaIds);
+    const mediaById = new Map(mediaRows.map((m) => [m.id, m]));
+
+    return rows.map((row) => ({
+      ...row,
+      coverImage: toMediaResponseNullable(
+        row.coverImage ? mediaById.get(row.coverImage) : null,
+      ),
+      bannerImage: toMediaResponseNullable(
+        row.bannerImage ? mediaById.get(row.bannerImage) : null,
+      ),
+    }));
+  }
+
   async createCollection(input: CreateCollectionInput) {
     const existingSlug = await this.repo.findBySlug(input.slug);
     if (existingSlug) {
@@ -93,7 +126,7 @@ export class CollectionService {
       { collectionId: created.id, productCount: input.productIds.length },
       "collection created",
     );
-    return created;
+    return await this.toResponse(created);
   }
 
   async listCollections(input: ListCollectionsInput) {
@@ -113,7 +146,7 @@ export class CollectionService {
     });
     const totalPages = Math.ceil(total / limit);
     return {
-      data: rows,
+      data: await this.toResponseList(rows),
       meta: { page, limit, total, totalPages },
     };
   }
@@ -158,7 +191,7 @@ export class CollectionService {
       { collectionId: id, productCount: input.productIds.length },
       "collection updated",
     );
-    return updated;
+    return await this.toResponse(updated);
   }
 
   async deleteCollection(id: string) {

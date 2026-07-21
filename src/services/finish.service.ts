@@ -2,6 +2,7 @@ import type { ColorRepository } from "../repositories/color.repository";
 import type { FinishRepository } from "../repositories/finish.repository";
 import { ConflictError, NotFoundError } from "../utils/errors";
 import { logger } from "../utils/logger";
+import { toMediaResponseNullable } from "../utils/media-url";
 
 interface CreateFinishInput {
   finish: string;
@@ -16,7 +17,7 @@ interface FinishColor {
   id: string;
   name: string;
   hexCode: string;
-  swatchPhoto: string | null;
+  swatchPhoto: ReturnType<typeof toMediaResponseNullable>;
   notes: string | null;
 }
 
@@ -48,6 +49,13 @@ export class FinishService {
       rows.map((finish) => finish.id),
     );
 
+    // Ambil seluruh media swatch untuk color di halaman ini dalam satu query.
+    const swatchIds = relatedColors
+      .map((color) => color.swatchPhoto)
+      .filter((id): id is string => id !== null);
+    const swatchMedia = await this.colorRepo.findMediaByIds(swatchIds);
+    const swatchById = new Map(swatchMedia.map((m) => [m.id, m]));
+
     const colorsByFinishId = new Map<string, FinishColor[]>();
     for (const color of relatedColors) {
       if (!color.finishesId) {
@@ -58,7 +66,9 @@ export class FinishService {
         id: color.id,
         name: color.name,
         hexCode: color.hexCode,
-        swatchPhoto: color.swatchPhoto,
+        swatchPhoto: toMediaResponseNullable(
+          color.swatchPhoto ? swatchById.get(color.swatchPhoto) : null,
+        ),
         notes: color.notes,
       });
       colorsByFinishId.set(color.finishesId, bucket);

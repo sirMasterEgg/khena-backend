@@ -44,57 +44,8 @@ export const categoryStatsModel = t.Object({
   roomGroups: t.Number(),
 });
 
-export const collectionModel = t.Object({
-  id: t.String(),
-  name: t.String(),
-  slug: t.String(),
-  coverImage: nullableString,
-  bannerImage: nullableString,
-  status: t.String(),
-  ...auditColumns,
-});
-
-export const finishModel = t.Object({
-  id: t.String(),
-  name: t.String(),
-  ...auditColumns,
-});
-
-/** Ringkasan color yang di-nest di dalam finish (GET /api/finishes). */
-export const finishColorModel = t.Object({
-  id: t.String(),
-  name: t.String(),
-  hexCode: t.String(),
-  swatchPhoto: nullableString,
-  notes: nullableString,
-});
-
-/** Finish beserta color miliknya (GET /api/finishes). */
-export const finishWithColorsModel = t.Object({
-  id: t.String(),
-  name: t.String(),
-  colors: t.Array(finishColorModel),
-  ...auditColumns,
-});
-
-export const colorModel = t.Object({
-  id: t.String(),
-  name: t.String(),
-  hexCode: t.String(),
-  swatchPhoto: nullableString,
-  notes: nullableString,
-  finishesId: nullableString,
-  ...auditColumns,
-});
-
-export const folderModel = t.Object({
-  id: t.String(),
-  name: t.String(),
-  parentId: nullableString,
-  path: t.String(),
-  ...auditColumns,
-});
-
+// Dideklarasikan lebih dulu karena dipakai skema-skema di bawahnya. `const`
+// tidak di-hoist, jadi urutan deklarasi di sini penting.
 export const mediaModel = t.Object({
   id: t.String(),
   folderId: nullableString,
@@ -119,12 +70,63 @@ export const mediaModel = t.Object({
   ...auditColumns,
 });
 
+export const nullableMediaModel = t.Union([mediaModel, t.Null()]);
+
+export const collectionModel = t.Object({
+  id: t.String(),
+  name: t.String(),
+  slug: t.String(),
+  coverImage: nullableMediaModel,
+  bannerImage: nullableMediaModel,
+  status: t.String(),
+  ...auditColumns,
+});
+
+export const finishModel = t.Object({
+  id: t.String(),
+  name: t.String(),
+  ...auditColumns,
+});
+
+/** Ringkasan color yang di-nest di dalam finish (GET /api/finishes). */
+export const finishColorModel = t.Object({
+  id: t.String(),
+  name: t.String(),
+  hexCode: t.String(),
+  swatchPhoto: nullableMediaModel,
+  notes: nullableString,
+});
+
+/** Finish beserta color miliknya (GET /api/finishes). */
+export const finishWithColorsModel = t.Object({
+  id: t.String(),
+  name: t.String(),
+  colors: t.Array(finishColorModel),
+  ...auditColumns,
+});
+
+export const colorModel = t.Object({
+  id: t.String(),
+  name: t.String(),
+  hexCode: t.String(),
+  swatchPhoto: nullableMediaModel,
+  notes: nullableString,
+  finishesId: nullableString,
+  ...auditColumns,
+});
+
+export const folderModel = t.Object({
+  id: t.String(),
+  name: t.String(),
+  parentId: nullableString,
+  path: t.String(),
+  ...auditColumns,
+});
+
 const productCategoryModel = t.Object({
   id: t.String(),
   name: t.String(),
 });
-
-const nullableMediaModel = t.Union([mediaModel, t.Null()]);
 
 /** Item pada list produk berpaginasi (GET /api/products). */
 export const productListItemModel = t.Object({

@@ -1,6 +1,8 @@
+import type { Color } from "../models/color.model";
 import type { ColorRepository } from "../repositories/color.repository";
 import { NotFoundError } from "../utils/errors";
 import { logger } from "../utils/logger";
+import { toMediaResponseNullable } from "../utils/media-url";
 
 interface CreateColorInput {
   color: string;
@@ -37,6 +39,35 @@ export class ColorService {
     }
   }
 
+  /** Ubah satu row color jadi bentuk response (swatchPhoto → objek media). */
+  private async toResponse(row: Color) {
+    const [mapped] = await this.toResponseList([row]);
+    if (!mapped) {
+      throw new Error("failed to map color response");
+    }
+    return mapped;
+  }
+
+  /**
+   * Versi batch: ambil seluruh media swatch dalam satu query,
+   * lalu gabungkan di memori supaya tidak N+1.
+   */
+  private async toResponseList(rows: Color[]) {
+    const mediaIds = rows
+      .map((row) => row.swatchPhoto)
+      .filter((id): id is string => id !== null);
+    const mediaRows = await this.repo.findMediaByIds(mediaIds);
+    const mediaById = new Map(mediaRows.map((m) => [m.id, m]));
+
+    // Media yang sudah soft-deleted tidak ketemu di Map → `null`, bukan error.
+    return rows.map((row) => ({
+      ...row,
+      swatchPhoto: toMediaResponseNullable(
+        row.swatchPhoto ? mediaById.get(row.swatchPhoto) : null,
+      ),
+    }));
+  }
+
   async createColor(input: CreateColorInput) {
     await this.validateFinish(input.finishId);
     await this.validateSwatch(input.swatchImage);
@@ -49,7 +80,7 @@ export class ColorService {
       swatchPhoto: input.swatchImage,
     });
     logger.info({ colorId: created.id }, "color created");
-    return created;
+    return await this.toResponse(created);
   }
 
   async listColors(input: ListColorsInput) {
@@ -57,7 +88,7 @@ export class ColorService {
     const { rows, total } = await this.repo.list(page, limit);
     const totalPages = Math.ceil(total / limit);
     return {
-      data: rows,
+      data: await this.toResponseList(rows),
       meta: { page, limit, total, totalPages },
     };
   }
@@ -67,7 +98,7 @@ export class ColorService {
     if (!color) {
       throw new NotFoundError("color not found");
     }
-    return color;
+    return await this.toResponse(color);
   }
 
   async updateColor(id: string, input: UpdateColorInput) {
@@ -86,7 +117,7 @@ export class ColorService {
       swatchPhoto: input.swatchImage,
     });
     logger.info({ colorId: id }, "color updated");
-    return updated;
+    return await this.toResponse(updated);
   }
 
   async deleteColor(id: string) {
