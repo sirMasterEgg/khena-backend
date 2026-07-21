@@ -513,6 +513,12 @@ export class MediaService {
     return { success: true };
   }
 
+  /**
+   * Hapus file secara soft delete saja. Objek fisik di storage sengaja
+   * TIDAK dihapus supaya masih bisa dipulihkan dan supaya URL lama tidak
+   * langsung mati. Pembersihan objek yatim (kalau nanti diperlukan)
+   * dilakukan terpisah, bukan di jalur request user.
+   */
   async deleteFile(id: string) {
     const file = await this.repo.findMediaById(id);
     if (!file) {
@@ -520,12 +526,6 @@ export class MediaService {
     }
 
     await this.repo.softDeleteMedia(file.id);
-
-    // Remove the physical object(s) from storage (idempotent).
-    await this.fileService.deleteFile(file.objectKey);
-    if (file.thumbnailKey) {
-      await this.fileService.deleteFile(file.thumbnailKey);
-    }
 
     logger.info({ mediaId: file.id }, "media file deleted");
     return { success: true };
