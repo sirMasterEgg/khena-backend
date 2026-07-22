@@ -70,13 +70,6 @@ export class ProductRepository {
     return result[0];
   }
 
-  async findMediaByObjectKeys(objectKeys: string[]) {
-    return await db
-      .select()
-      .from(media)
-      .where(inArray(media.objectKey, objectKeys));
-  }
-
   async findMediaByIds(ids: string[]): Promise<Media[]> {
     if (ids.length === 0) {
       return [];

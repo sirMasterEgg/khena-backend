@@ -25,7 +25,7 @@ const variantBody = t.Object({
   images: t.Array(t.String(), { minItems: 1 }),
 });
 
-// Dimensi produk & box: ukuran numerik + satu objectKey media untuk gambarnya.
+// Dimensi produk & box: ukuran numerik + satu media id (uuid) untuk gambarnya.
 const dimensionBody = t.Object({
   width: t.Number(),
   depth: t.Number(),
@@ -92,15 +92,15 @@ export const ProductController = (service: ProductService) =>
     .post(
       "/",
       async ({ body, set }) => {
-        await service.createProduct(body);
+        const data = await service.createProduct(body);
         set.status = 201;
-        return { data: "OK" };
+        return { data };
       },
       {
         body: createProductBody,
         requirePermission: "product.create",
         csrf: true,
-        response: { 201: dataEnvelope(t.Literal("OK")), ...errorResponses },
+        response: { 201: dataEnvelope(productDetailModel), ...errorResponses },
       },
     )
     .get(

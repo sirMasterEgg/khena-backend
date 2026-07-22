@@ -64,11 +64,11 @@ export class ProductService {
 
   /**
    * Validasi eksistensi collection, category, colors, care instruction, dan
-   * seluruh objectKey media pada payload create/update. Menerima input parsial
-   * (untuk PATCH) — hanya bagian yang ada yang divalidasi. `effectiveBaseSku`
-   * dipakai untuk memastikan setiap SKU varian diawali base SKU produk.
-   * Mengembalikan resolver `getMediaId` (objectKey → mediaId) yang sudah
-   * dipastikan lengkap untuk objectKey yang ada di payload.
+   * seluruh media id yang direferensikan payload create/update. Menerima input
+   * parsial (untuk PATCH) — hanya bagian yang ada yang divalidasi.
+   * `effectiveBaseSku` dipakai untuk memastikan setiap SKU varian diawali base
+   * SKU produk. Mengembalikan `getMediaId` yang mem-validasi sebuah media id ada
+   * lalu mengembalikannya kembali (semua id di payload sudah dipastikan valid).
    */
   private async validateProductInput(
     input: UpdateProductInput,
@@ -125,30 +125,27 @@ export class ProductService {
       }
     }
 
-    // Resolve object keys yang ada di payload menjadi media id.
-    const allObjectKeys = [
+    // Validasi seluruh media id yang direferensikan payload.
+    const allMediaIds = [
       ...(input.productDimension ? [input.productDimension.image] : []),
       ...(input.boxDimension ? [input.boxDimension.image] : []),
       ...(input.media ?? []),
       ...(input.variant?.flatMap((v) => v.images) ?? []),
     ];
     const foundMedia =
-      allObjectKeys.length > 0
-        ? await this.repo.findMediaByObjectKeys(allObjectKeys)
+      allMediaIds.length > 0
+        ? await this.repo.findMediaByIds(allMediaIds)
         : [];
-    const objectKeyToMediaId = new Map(
-      foundMedia.map((m) => [m.objectKey, m.id]),
-    );
-    const getMediaId = (objectKey: string) => {
-      const mediaId = objectKeyToMediaId.get(objectKey);
-      if (mediaId === undefined) {
-        throw new NotFoundError(`media ${objectKey} not found`);
+    const foundMediaIds = new Set(foundMedia.map((m) => m.id));
+    const getMediaId = (mediaId: string) => {
+      if (!foundMediaIds.has(mediaId)) {
+        throw new NotFoundError(`media ${mediaId} not found`);
       }
       return mediaId;
     };
-    // Pastikan semua object key ditemukan di awal.
-    for (const objectKey of allObjectKeys) {
-      getMediaId(objectKey);
+    // Pastikan semua media id ditemukan di awal.
+    for (const mediaId of allMediaIds) {
+      getMediaId(mediaId);
     }
 
     return { getMediaId };
@@ -201,9 +198,9 @@ export class ProductService {
       );
 
       // Create product media showcase
-      const showcaseRows = input.media.map((fileKey, index) => ({
+      const showcaseRows = input.media.map((mediaId, index) => ({
         productId: product.id,
-        mediaId: getMediaId(fileKey),
+        mediaId: getMediaId(mediaId),
         order: index,
       }));
       await this.repo.createProductMediaShowcase(showcaseRows, tx);
@@ -224,9 +221,9 @@ export class ProductService {
           tx,
         );
 
-        const imageRows = variant.images.map((fileKey, index) => ({
+        const imageRows = variant.images.map((mediaId, index) => ({
           detailProductId: detailProduct.id,
-          mediaId: getMediaId(fileKey),
+          mediaId: getMediaId(mediaId),
           order: index,
         }));
         await this.repo.createDetailProductImages(imageRows, tx);
@@ -265,7 +262,7 @@ export class ProductService {
       { productId, variantCount: input.variant.length },
       "product created",
     );
-    return { success: true };
+    return await this.getProductDetail(productId);
   }
 
   async listProducts(input: ListProductsInput) {
@@ -449,9 +446,9 @@ export class ProductService {
       if (input.media !== undefined) {
         await this.repo.softDeleteShowcaseByProductId(id, tx);
         await this.repo.createProductMediaShowcase(
-          input.media.map((fileKey, index) => ({
+          input.media.map((mediaId, index) => ({
             productId: id,
-            mediaId: getMediaId(fileKey),
+            mediaId: getMediaId(mediaId),
             order: index,
           })),
           tx,
@@ -495,9 +492,9 @@ export class ProductService {
               tx,
             );
             await this.repo.createDetailProductImages(
-              variant.images.map((fileKey, index) => ({
+              variant.images.map((mediaId, index) => ({
                 detailProductId: variant.id as string,
-                mediaId: getMediaId(fileKey),
+                mediaId: getMediaId(mediaId),
                 order: index,
               })),
               tx,
@@ -517,9 +514,9 @@ export class ProductService {
               tx,
             );
             await this.repo.createDetailProductImages(
-              variant.images.map((fileKey, index) => ({
+              variant.images.map((mediaId, index) => ({
                 detailProductId: detailProduct.id,
-                mediaId: getMediaId(fileKey),
+                mediaId: getMediaId(mediaId),
                 order: index,
               })),
               tx,
