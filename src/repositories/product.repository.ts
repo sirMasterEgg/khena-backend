@@ -35,6 +35,7 @@ import {
   productMediaShowcase,
   products,
 } from "../models/product.model";
+import { type NewStock, stocks } from "../models/stock.model";
 import { stampCreate, stampDelete, stampUpdate } from "../utils/audit";
 import { db, type Tx } from "../utils/db";
 
@@ -103,6 +104,21 @@ export class ProductRepository {
 
   async findColorByIds(ids: string[]) {
     return await db.select().from(colors).where(inArray(colors.id, ids));
+  }
+
+  async findCareInstructionByIds(ids: string[]) {
+    if (ids.length === 0) {
+      return [];
+    }
+    return await db
+      .select()
+      .from(careInstructions)
+      .where(
+        and(
+          inArray(careInstructions.id, ids),
+          isNull(careInstructions.deletedAt),
+        ),
+      );
   }
 
   // ---- list ----
@@ -287,6 +303,18 @@ export class ProductRepository {
       throw new Error("failed to create detail product");
     }
     return detailProduct;
+  }
+
+  async createStock(data: NewStock, tx: Tx) {
+    const result = await tx
+      .insert(stocks)
+      .values(stampCreate(data))
+      .returning();
+    const stock = result[0];
+    if (!stock) {
+      throw new Error("failed to create stock");
+    }
+    return stock;
   }
 
   async createDetailProductImages(rows: NewDetailProductImage[], tx: Tx) {

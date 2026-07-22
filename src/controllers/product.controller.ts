@@ -16,41 +16,60 @@ import type { ProductService } from "../services/product.service";
 const variantBody = t.Object({
   colorId: t.String({ minLength: 1 }),
   sku: t.String({ minLength: 1 }),
-  price: t.Number(),
-  discountPercent: t.Optional(t.Number()),
-  capitalPrice: t.Number(),
-  marketplacePrice: t.Number(),
   visibility: t.String({ minLength: 1 }),
-  variantMedia: t.Array(t.String(), { minItems: 1 }),
+  price: t.Number(),
+  capitalPrice: t.Number(),
+  discountPercent: t.Optional(t.Number()),
+  marketplacePrice: t.Optional(t.Number()),
+  initialStock: t.Number({ minimum: 0 }),
+  images: t.Array(t.String(), { minItems: 1 }),
+});
+
+// Dimensi produk & box: ukuran numerik + satu objectKey media untuk gambarnya.
+const dimensionBody = t.Object({
+  width: t.Number(),
+  depth: t.Number(),
+  height: t.Number(),
+  weight: t.Number(),
+  image: t.String({ minLength: 1 }),
 });
 
 const createProductBody = t.Object({
   productName: t.String({ minLength: 1 }),
-  sku: t.String({ minLength: 1 }),
-  collectionId: t.String({ minLength: 1 }),
+  baseSku: t.String({ minLength: 1 }),
+  collectionId: t.Optional(t.String({ minLength: 1 })),
   categoryId: t.String({ minLength: 1 }),
-  description: t.String({ minLength: 1 }),
-  material: t.String({ minLength: 1 }),
-  careInstructions: t.Array(t.String(), { minItems: 1 }),
-  productDimension: t.String({ minLength: 1 }),
-  boxDimensions: t.String({ minLength: 1 }),
+  status: t.Union([
+    t.Literal("published"),
+    t.Literal("draft"),
+    t.Literal("scheduled"),
+    t.Literal("archived"),
+  ]),
+  description: t.Optional(t.String({ minLength: 1 })),
+  lowStockAlert: t.Optional(t.Number({ minimum: 0 })),
+  materialInformation: t.String({ minLength: 1 }),
+  careInstructionIds: t.Array(t.String({ minLength: 1 }), { minItems: 1 }),
+  productDimension: dimensionBody,
+  boxDimension: dimensionBody,
   media: t.Array(t.String(), { minItems: 1 }),
-  status: t.String({ minLength: 1 }),
   variant: t.Array(variantBody, { minItems: 1 }),
 });
 
-// Update: body sama dengan create, hanya variant boleh membawa `id` (untuk
-// mencocokkan variant lama). Variant tanpa `id` diperlakukan sebagai variant baru.
-const updateProductBody = t.Object({
-  ...createProductBody.properties,
-  variant: t.Array(
-    t.Object({
-      id: t.Optional(t.String({ minLength: 1 })),
-      ...variantBody.properties,
-    }),
-    { minItems: 1 },
-  ),
-});
+// Update (PATCH): semua field opsional (partial). Field yang tidak dikirim tidak
+// diubah. `variant` boleh membawa `id` untuk mencocokkan variant lama; variant
+// tanpa `id` diperlakukan sebagai variant baru.
+const updateProductBody = t.Partial(
+  t.Object({
+    ...createProductBody.properties,
+    variant: t.Array(
+      t.Object({
+        id: t.Optional(t.String({ minLength: 1 })),
+        ...variantBody.properties,
+      }),
+      { minItems: 1 },
+    ),
+  }),
+);
 
 const listQuery = t.Object({
   page: t.Optional(t.Numeric({ minimum: 1 })),
@@ -119,7 +138,7 @@ export const ProductController = (service: ProductService) =>
         },
       },
     )
-    .put(
+    .patch(
       "/:id",
       async ({ params, body }) => {
         const data = await service.updateProduct(params.id, body);
