@@ -285,6 +285,23 @@ export class ProductService {
     };
   }
 
+  async getProductStats() {
+    const [status, stock] = await Promise.all([
+      this.repo.productStatusStats(),
+      this.repo.stockStats(),
+    ]);
+
+    return {
+      totalProducts: status.total,
+      totalInventory: stock.totalInventory,
+      totalOutOfStock: stock.totalOutOfStock,
+      totalPublished: status.published,
+      totalDraft: status.draft,
+      totalScheduled: status.scheduled,
+      totalArchived: status.archived,
+    };
+  }
+
   async getProductDetail(id: string) {
     const product = await this.repo.findProductWithCategoryById(id);
     if (!product) {

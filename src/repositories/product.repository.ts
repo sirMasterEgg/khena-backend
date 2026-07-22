@@ -172,6 +172,68 @@ export class ProductRepository {
     return { rows, total };
   }
 
+  // ---- stats ----
+
+  async productStatusStats(): Promise<{
+    total: number;
+    published: number;
+    draft: number;
+    scheduled: number;
+    archived: number;
+  }> {
+    const result = await db
+      .select({
+        total: sql<number>`count(*)`,
+        published: sql<number>`count(*) filter (where ${products.status} = 'published')`,
+        draft: sql<number>`count(*) filter (where ${products.status} = 'draft')`,
+        scheduled: sql<number>`count(*) filter (where ${products.status} = 'scheduled')`,
+        archived: sql<number>`count(*) filter (where ${products.status} = 'archived')`,
+      })
+      .from(products)
+      .where(isNull(products.deletedAt));
+    const row = result[0];
+
+    return {
+      total: Number(row?.total ?? 0),
+      published: Number(row?.published ?? 0),
+      draft: Number(row?.draft ?? 0),
+      scheduled: Number(row?.scheduled ?? 0),
+      archived: Number(row?.archived ?? 0),
+    };
+  }
+
+  async stockStats(): Promise<{
+    totalInventory: number;
+    totalOutOfStock: number;
+  }> {
+    // Subquery: total stok per varian yang masih aktif (varian & produk induk
+    // belum di-soft-delete).
+    const perVariant = db
+      .select({
+        detailProductId: stocks.detailProductId,
+        qty: sql<number>`sum(${stocks.quantity})`.as("qty"),
+      })
+      .from(stocks)
+      .innerJoin(detailProducts, eq(stocks.detailProductId, detailProducts.id))
+      .innerJoin(products, eq(detailProducts.productId, products.id))
+      .where(and(isNull(detailProducts.deletedAt), isNull(products.deletedAt)))
+      .groupBy(stocks.detailProductId)
+      .as("per_variant");
+
+    const result = await db
+      .select({
+        totalInventory: sql<number>`coalesce(sum(${perVariant.qty}), 0)`,
+        totalOutOfStock: sql<number>`count(*) filter (where ${perVariant.qty} = 0)`,
+      })
+      .from(perVariant);
+    const row = result[0];
+
+    return {
+      totalInventory: Number(row?.totalInventory ?? 0),
+      totalOutOfStock: Number(row?.totalOutOfStock ?? 0),
+    };
+  }
+
   // ---- detail ----
 
   async findProductWithCategoryById(

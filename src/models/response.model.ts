@@ -185,3 +185,14 @@ export const productDetailModel = t.Object({
     }),
   ),
 });
+
+/** Agregat produk untuk dashboard (GET /api/products/stats). */
+export const productStatsModel = t.Object({
+  totalProducts: t.Number(),
+  totalInventory: t.Number(),
+  totalOutOfStock: t.Number(),
+  totalPublished: t.Number(),
+  totalDraft: t.Number(),
+  totalScheduled: t.Number(),
+  totalArchived: t.Number(),
+});

@@ -10,6 +10,7 @@ import {
 import {
   productDetailModel,
   productListItemModel,
+  productStatsModel,
 } from "../models/response.model";
 import type { ProductService } from "../services/product.service";
 
@@ -120,6 +121,19 @@ export const ProductController = (service: ProductService) =>
         query: listQuery,
         response: {
           200: listEnvelope(productListItemModel),
+          ...publicErrorResponses,
+        },
+      },
+    )
+    .get(
+      "/stats",
+      async () => {
+        const data = await service.getProductStats();
+        return { data };
+      },
+      {
+        response: {
+          200: dataEnvelope(productStatsModel),
           ...publicErrorResponses,
         },
       },
