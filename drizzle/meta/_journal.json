@@ -64,6 +64,13 @@
       "when": 1784542781089,
       "tag": "0008_add_audit_column_to_table",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1784657054988,
+      "tag": "0009_add_index_soft_delete",
+      "breakpoints": true
     }
   ]
 }

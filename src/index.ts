@@ -40,6 +40,18 @@ const app = new Elysia({ prefix: "/api" })
       return errorBody("NOT_FOUND", "route not found");
     }
 
+    // Unique violation dari Postgres (kode 23505). Bisa terjadi pada race
+    // condition dua request bersamaan yang lolos pengecekan duplikat di service.
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error as { code?: string }).code === "23505"
+    ) {
+      set.status = 400;
+      return errorBody("CONFLICT", "data already exists");
+    }
+
     // Sisanya: error tak terduga. Log detailnya (termasuk stack trace lewat
     // serializer `err` bawaan pino), tapi jangan bocorkan ke client.
     logger.error({ err: error }, "unhandled error");

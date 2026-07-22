@@ -1,6 +1,7 @@
 import { Elysia, t } from "elysia";
 import { authPlugin } from "../auth/auth.plugin";
 import { csrfPlugin } from "../auth/csrf.plugin";
+import { MAX_DIRECT_UPLOAD_BYTES } from "../config/upload.config";
 import {
   dataEnvelope,
   errorResponses,
@@ -51,13 +52,13 @@ const folderBody = t.Object({
 const fileMeta = t.Object({
   name: t.String({ minLength: 1 }),
   type: t.String({ minLength: 1 }),
-  size: t.Number({ minimum: 0 }),
+  size: t.Number({ minimum: 1 }),
   altText: t.Optional(t.String({ maxLength: 1000 })),
 });
 
 const uploadDirectBody = t.Object({
   path: t.String(),
-  files: t.Files(),
+  files: t.Files({ maxSize: MAX_DIRECT_UPLOAD_BYTES }),
   // Sejajar per index dengan `files`. Kalau kirim 1 field saja, Elysia
   // memberikan string (bukan array) — makanya bentuknya Union.
   altTexts: t.Optional(t.Union([t.String(), t.Array(t.String())])),
@@ -157,7 +158,10 @@ export const MediaController = (service: MediaService) =>
 
         const payload = await Promise.all(
           files.map(async (f, index) => ({
-            name: f.name,
+            // File 0 byte kehilangan filename saat di-parse Bun (jadi Blob
+            // biasa tanpa `name`), padahal nama itu yang dipakai di pesan
+            // error. Fallback supaya pesannya tidak berbunyi "undefined".
+            name: f.name || "(unnamed)",
             type: f.type,
             body: Buffer.from(await f.arrayBuffer()),
             altText: altTexts[index],
@@ -344,7 +348,9 @@ export const MediaController = (service: MediaService) =>
           sort: query.sort ?? "createdAt",
           order: query.order ?? "desc",
         });
-        return { data: { ...result, files: result.files.map(toMediaResponse) } };
+        return {
+          data: { ...result, files: result.files.map(toMediaResponse) },
+        };
       },
       {
         query: browseQuery,
@@ -361,7 +367,9 @@ export const MediaController = (service: MediaService) =>
           sort: query.sort ?? "createdAt",
           order: query.order ?? "desc",
         });
-        return { data: { ...result, files: result.files.map(toMediaResponse) } };
+        return {
+          data: { ...result, files: result.files.map(toMediaResponse) },
+        };
       },
       {
         query: browseQuery,

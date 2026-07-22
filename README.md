@@ -60,6 +60,20 @@ DATABASE_URL=postgresql://user:password@localhost:5432/dbname
 PORT=3000
 ```
 
+#### Batas Ukuran Upload (opsional)
+
+Keduanya opsional — kalau tidak diisi, dipakai nilai default di bawah.
+
+| Variable | Default | Keterangan |
+|---|---|---|
+| `MAX_DIRECT_UPLOAD_BYTES` | `10485760` (10 MB) | Batas ukuran satu file di `POST /api/media/upload-direct`. Nilainya konservatif karena file dibaca penuh ke memori server. |
+| `MAX_MULTIPART_UPLOAD_BYTES` | `524288000` (500 MB) | Batas ukuran satu file di jalur multipart upload. Boleh jauh lebih besar karena file dikirim per part. |
+
+```env
+MAX_DIRECT_UPLOAD_BYTES=10485760
+MAX_MULTIPART_UPLOAD_BYTES=524288000
+```
+
 ### 3. Setup Database & Migration
 
 Generate migration dari schema:
