@@ -56,16 +56,29 @@ export class ColorService {
     const mediaIds = rows
       .map((row) => row.swatchPhoto)
       .filter((id): id is string => id !== null);
-    const mediaRows = await this.repo.findMediaByIds(mediaIds);
-    const mediaById = new Map(mediaRows.map((m) => [m.id, m]));
+    const finishIds = rows
+      .map((row) => row.finishesId)
+      .filter((id): id is string => id !== null);
 
-    // Media yang sudah soft-deleted tidak ketemu di Map → `null`, bukan error.
-    return rows.map((row) => ({
-      ...row,
-      swatchPhoto: toMediaResponseNullable(
-        row.swatchPhoto ? mediaById.get(row.swatchPhoto) : null,
-      ),
-    }));
+    const [mediaRows, finishRows] = await Promise.all([
+      this.repo.findMediaByIds(mediaIds),
+      this.repo.findFinishByIds(finishIds),
+    ]);
+    const mediaById = new Map(mediaRows.map((m) => [m.id, m]));
+    const finishById = new Map(finishRows.map((f) => [f.id, f]));
+
+    // Media / finish yang sudah soft-deleted tidak ketemu di Map → `null`,
+    // bukan error.
+    return rows.map((row) => {
+      const finish = row.finishesId ? finishById.get(row.finishesId) : null;
+      return {
+        ...row,
+        swatchPhoto: toMediaResponseNullable(
+          row.swatchPhoto ? mediaById.get(row.swatchPhoto) : null,
+        ),
+        finishes: finish ?? null,
+      };
+    });
   }
 
   async createColor(input: CreateColorInput) {

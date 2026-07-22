@@ -118,6 +118,7 @@ export const colorModel = t.Object({
   swatchPhoto: nullableMediaModel,
   notes: nullableString,
   finishesId: nullableString,
+  finishes: t.Union([finishModel, t.Null()]),
   ...auditColumns,
 });
 
