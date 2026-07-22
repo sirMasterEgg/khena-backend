@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { isNull, sql } from "drizzle-orm";
 import { permissions } from "../models/permission.model";
 import { runWithActor } from "../utils/actor-context";
 import { stampCreate, stampUpdate } from "../utils/audit";
@@ -23,6 +23,7 @@ export async function syncPermissions(): Promise<void> {
       .values(rows.map(stampCreate))
       .onConflictDoUpdate({
         target: permissions.code,
+        targetWhere: isNull(permissions.deletedAt),
         set: stampUpdate({
           module: sql`excluded.module`,
           action: sql`excluded.action`,
