@@ -83,7 +83,7 @@ export const detailProducts = pgTable(
     price: bigint("price", { mode: "number" }).notNull(),
     discountPercent: integer("discount_percent"),
     capitalPrice: bigint("capital_price", { mode: "number" }).notNull(),
-    marketplacePrice: bigint("marketplace_price", { mode: "number" }).notNull(),
+    marketplacePrice: bigint("marketplace_price", { mode: "number" }),
     visibility: varchar("visibility", { length: 15 }).notNull(),
     ...auditColumns,
   },

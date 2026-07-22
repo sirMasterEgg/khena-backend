@@ -7,15 +7,15 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { auditColumns } from "./audit-columns";
-import { products } from "./product.model";
+import { detailProducts } from "./product.model";
 
 export const stocks = pgTable("stocks", {
   id: uuid("id")
     .primaryKey()
     .$defaultFn(() => Bun.randomUUIDv7()),
-  productId: uuid("product_id")
+  detailProductId: uuid("detail_product_id")
     .notNull()
-    .references(() => products.id),
+    .references(() => detailProducts.id),
   quantity: integer("quantity").notNull(),
   capitalPrice: bigint("capital_price", { mode: "number" }).notNull(),
   reason: text("reason"),

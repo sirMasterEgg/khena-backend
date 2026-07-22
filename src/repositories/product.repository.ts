@@ -35,6 +35,7 @@ import {
   productMediaShowcase,
   products,
 } from "../models/product.model";
+import { type NewStock, stocks } from "../models/stock.model";
 import { stampCreate, stampDelete, stampUpdate } from "../utils/audit";
 import { db, type Tx } from "../utils/db";
 
@@ -69,13 +70,6 @@ export class ProductRepository {
     return result[0];
   }
 
-  async findMediaByObjectKeys(objectKeys: string[]) {
-    return await db
-      .select()
-      .from(media)
-      .where(inArray(media.objectKey, objectKeys));
-  }
-
   async findMediaByIds(ids: string[]): Promise<Media[]> {
     if (ids.length === 0) {
       return [];
@@ -103,6 +97,21 @@ export class ProductRepository {
 
   async findColorByIds(ids: string[]) {
     return await db.select().from(colors).where(inArray(colors.id, ids));
+  }
+
+  async findCareInstructionByIds(ids: string[]) {
+    if (ids.length === 0) {
+      return [];
+    }
+    return await db
+      .select()
+      .from(careInstructions)
+      .where(
+        and(
+          inArray(careInstructions.id, ids),
+          isNull(careInstructions.deletedAt),
+        ),
+      );
   }
 
   // ---- list ----
@@ -161,6 +170,68 @@ export class ProductRepository {
     const total = Number(countResult[0]?.count ?? 0);
 
     return { rows, total };
+  }
+
+  // ---- stats ----
+
+  async productStatusStats(): Promise<{
+    total: number;
+    published: number;
+    draft: number;
+    scheduled: number;
+    archived: number;
+  }> {
+    const result = await db
+      .select({
+        total: sql<number>`count(*)`,
+        published: sql<number>`count(*) filter (where ${products.status} = 'published')`,
+        draft: sql<number>`count(*) filter (where ${products.status} = 'draft')`,
+        scheduled: sql<number>`count(*) filter (where ${products.status} = 'scheduled')`,
+        archived: sql<number>`count(*) filter (where ${products.status} = 'archived')`,
+      })
+      .from(products)
+      .where(isNull(products.deletedAt));
+    const row = result[0];
+
+    return {
+      total: Number(row?.total ?? 0),
+      published: Number(row?.published ?? 0),
+      draft: Number(row?.draft ?? 0),
+      scheduled: Number(row?.scheduled ?? 0),
+      archived: Number(row?.archived ?? 0),
+    };
+  }
+
+  async stockStats(): Promise<{
+    totalInventory: number;
+    totalOutOfStock: number;
+  }> {
+    // Subquery: total stok per varian yang masih aktif (varian & produk induk
+    // belum di-soft-delete).
+    const perVariant = db
+      .select({
+        detailProductId: stocks.detailProductId,
+        qty: sql<number>`sum(${stocks.quantity})`.as("qty"),
+      })
+      .from(stocks)
+      .innerJoin(detailProducts, eq(stocks.detailProductId, detailProducts.id))
+      .innerJoin(products, eq(detailProducts.productId, products.id))
+      .where(and(isNull(detailProducts.deletedAt), isNull(products.deletedAt)))
+      .groupBy(stocks.detailProductId)
+      .as("per_variant");
+
+    const result = await db
+      .select({
+        totalInventory: sql<number>`coalesce(sum(${perVariant.qty}), 0)`,
+        totalOutOfStock: sql<number>`count(*) filter (where ${perVariant.qty} = 0)`,
+      })
+      .from(perVariant);
+    const row = result[0];
+
+    return {
+      totalInventory: Number(row?.totalInventory ?? 0),
+      totalOutOfStock: Number(row?.totalOutOfStock ?? 0),
+    };
   }
 
   // ---- detail ----
@@ -287,6 +358,18 @@ export class ProductRepository {
       throw new Error("failed to create detail product");
     }
     return detailProduct;
+  }
+
+  async createStock(data: NewStock, tx: Tx) {
+    const result = await tx
+      .insert(stocks)
+      .values(stampCreate(data))
+      .returning();
+    const stock = result[0];
+    if (!stock) {
+      throw new Error("failed to create stock");
+    }
+    return stock;
   }
 
   async createDetailProductImages(rows: NewDetailProductImage[], tx: Tx) {

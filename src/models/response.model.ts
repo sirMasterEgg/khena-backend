@@ -88,6 +88,12 @@ export const finishModel = t.Object({
   ...auditColumns,
 });
 
+export const careInstructionModel = t.Object({
+  id: t.String(),
+  instruction: t.String(),
+  ...auditColumns,
+});
+
 /** Ringkasan color yang di-nest di dalam finish (GET /api/finishes). */
 export const finishColorModel = t.Object({
   id: t.String(),
@@ -112,6 +118,7 @@ export const colorModel = t.Object({
   swatchPhoto: nullableMediaModel,
   notes: nullableString,
   finishesId: nullableString,
+  finishes: t.Union([finishModel, t.Null()]),
   ...auditColumns,
 });
 
@@ -140,6 +147,15 @@ export const productListItemModel = t.Object({
   updatedAt: t.Date(),
 });
 
+/** Dimensi (produk / box): ukuran numerik + media gambarnya. */
+const dimensionDetailModel = t.Object({
+  width: nullableNumber,
+  depth: nullableNumber,
+  height: nullableNumber,
+  weight: nullableNumber,
+  media: nullableMediaModel,
+});
+
 /** Detail produk lengkap beserta relasinya (GET /api/products/:id). */
 export const productDetailModel = t.Object({
   id: t.String(),
@@ -148,9 +164,10 @@ export const productDetailModel = t.Object({
   description: nullableString,
   materials: nullableString,
   status: nullableString,
+  lowStockAlert: nullableNumber,
   category: productCategoryModel,
-  productDimensionMedia: nullableMediaModel,
-  boxDimensionMedia: nullableMediaModel,
+  productDimension: dimensionDetailModel,
+  boxDimension: dimensionDetailModel,
   careInstructions: t.Array(
     t.Object({ id: t.String(), instruction: t.String() }),
   ),
@@ -163,9 +180,20 @@ export const productDetailModel = t.Object({
       price: t.Number(),
       discountPercent: nullableNumber,
       capitalPrice: t.Number(),
-      marketplacePrice: t.Number(),
+      marketplacePrice: nullableNumber,
       visibility: t.String(),
       images: t.Array(mediaModel),
     }),
   ),
+});
+
+/** Agregat produk untuk dashboard (GET /api/products/stats). */
+export const productStatsModel = t.Object({
+  totalProducts: t.Number(),
+  totalInventory: t.Number(),
+  totalOutOfStock: t.Number(),
+  totalPublished: t.Number(),
+  totalDraft: t.Number(),
+  totalScheduled: t.Number(),
+  totalArchived: t.Number(),
 });

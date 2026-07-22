@@ -3,6 +3,7 @@ import { Elysia } from "elysia";
 import { syncPermissions } from "./auth/permission-sync";
 import { loggerPlugin } from "./plugins/logger.plugin";
 import { AuthRoute } from "./routes/auth.route";
+import { CareInstructionRoute } from "./routes/care-instruction.route";
 import { CategoryRoute } from "./routes/category.route";
 import { CollectionRoute } from "./routes/collection.route";
 import { ColorRoute } from "./routes/color.route";
@@ -66,7 +67,8 @@ const app = new Elysia({ prefix: "/api" })
   .use(CategoryRoute)
   .use(CollectionRoute)
   .use(FinishRoute)
-  .use(ColorRoute);
+  .use(ColorRoute)
+  .use(CareInstructionRoute);
 
 app.listen(port, () => {
   logger.info(`🦊 Server running at http://localhost:${port}`);

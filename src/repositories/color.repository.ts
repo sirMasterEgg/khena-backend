@@ -96,6 +96,17 @@ export class ColorRepository {
     return result[0];
   }
 
+  async findFinishByIds(ids: string[]): Promise<Finish[]> {
+    // `inArray` menghasilkan SQL tidak valid untuk array kosong.
+    if (ids.length === 0) {
+      return [];
+    }
+    return await db
+      .select()
+      .from(finishes)
+      .where(and(inArray(finishes.id, ids), isNull(finishes.deletedAt)));
+  }
+
   async findMediaById(id: string): Promise<Media | undefined> {
     const result = await db
       .select()
