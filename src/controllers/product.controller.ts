@@ -86,6 +86,24 @@ const listQuery = t.Object({
 
 const idParams = t.Object({ id: t.String({ minLength: 1 }) });
 
+const importCsvBody = t.Object({
+  file: t.File({ maxSize: 10 * 1024 * 1024 }),
+});
+
+const bulkImportResultModel = t.Object({
+  total: t.Number(),
+  successCount: t.Number(),
+  failedCount: t.Number(),
+  results: t.Array(
+    t.Object({
+      baseSku: t.String(),
+      status: t.Union([t.Literal("success"), t.Literal("failed")]),
+      productId: t.Optional(t.String()),
+      error: t.Optional(t.String()),
+    }),
+  ),
+});
+
 export const ProductController = (service: ProductService) =>
   new Elysia({ prefix: "/products" })
     .use(authPlugin)
@@ -122,6 +140,41 @@ export const ProductController = (service: ProductService) =>
         response: {
           200: listEnvelope(productListItemModel),
           ...publicErrorResponses,
+        },
+      },
+    )
+    // Registrasi sebelum "/:id" supaya "bulk" tidak tertangkap param id.
+    .get(
+      "/bulk",
+      async () => {
+        const csv = await service.exportProductsCsv();
+        return new Response(csv, {
+          headers: {
+            "content-type": "text/csv; charset=utf-8",
+            "content-disposition": `attachment; filename="products-${Date.now()}.csv"`,
+          },
+        });
+      },
+      {
+        requirePermission: "product.read",
+        // Respons teks/biner (bukan JSON) → JANGAN pasang skema `response`.
+      },
+    )
+    .post(
+      "/bulk",
+      async ({ body, set }) => {
+        const csvText = await body.file.text();
+        const data = await service.importProductsCsv(csvText);
+        set.status = 200;
+        return { data };
+      },
+      {
+        body: importCsvBody,
+        requirePermission: "product.create",
+        csrf: true,
+        response: {
+          200: dataEnvelope(bulkImportResultModel),
+          ...errorResponses,
         },
       },
     )
