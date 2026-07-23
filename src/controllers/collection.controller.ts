@@ -7,7 +7,12 @@ import {
   listEnvelope,
   publicErrorResponses,
 } from "../models/api-schema";
-import { collectionModel } from "../models/response.model";
+import {
+  collectionDetailModel,
+  collectionListItemModel,
+  collectionModel,
+  collectionStatsModel,
+} from "../models/response.model";
 import type { CollectionService } from "../services/collection.service";
 
 const collectionBody = t.Object({
@@ -23,6 +28,10 @@ const collectionBody = t.Object({
   status: t.Union([t.Literal("draft"), t.Literal("published")]),
   productIds: t.Array(t.String({ minLength: 1 })),
 });
+
+// Update (PATCH): semua field opsional (partial). Field yang tidak dikirim tidak
+// diubah. `productIds` hanya menggantikan produk bila dikirim secara eksplisit.
+const updateCollectionBody = t.Partial(collectionBody);
 
 const listQuery = t.Object({
   search: t.Optional(t.String()),
@@ -72,12 +81,39 @@ export const CollectionController = (service: CollectionService) =>
       {
         query: listQuery,
         response: {
-          200: listEnvelope(collectionModel),
+          200: listEnvelope(collectionListItemModel),
           ...publicErrorResponses,
         },
       },
     )
-    .put(
+    .get(
+      "/stats",
+      async () => {
+        const data = await service.getCollectionStats();
+        return { data };
+      },
+      {
+        response: {
+          200: dataEnvelope(collectionStatsModel),
+          ...publicErrorResponses,
+        },
+      },
+    )
+    .get(
+      "/:id",
+      async ({ params }) => {
+        const data = await service.getCollectionDetail(params.id);
+        return { data };
+      },
+      {
+        params: idParams,
+        response: {
+          200: dataEnvelope(collectionDetailModel),
+          ...publicErrorResponses,
+        },
+      },
+    )
+    .patch(
       "/:id",
       async ({ params, body }) => {
         const data = await service.updateCollection(params.id, body);
@@ -85,7 +121,7 @@ export const CollectionController = (service: CollectionService) =>
       },
       {
         params: idParams,
-        body: collectionBody,
+        body: updateCollectionBody,
         requirePermission: "collection.update",
         csrf: true,
         response: { 200: dataEnvelope(collectionModel), ...errorResponses },

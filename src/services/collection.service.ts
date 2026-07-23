@@ -1,4 +1,4 @@
-import type { Collection } from "../models/collection.model";
+import type { Collection, NewCollection } from "../models/collection.model";
 import type { CollectionRepository } from "../repositories/collection.repository";
 import { db } from "../utils/db";
 import { ConflictError, NotFoundError } from "../utils/errors";
@@ -27,7 +27,7 @@ interface ListCollectionsInput {
   limit: number;
 }
 
-type UpdateCollectionInput = CreateCollectionInput;
+type UpdateCollectionInput = Partial<CreateCollectionInput>;
 
 export class CollectionService {
   constructor(private readonly repo: CollectionRepository) {}
@@ -44,6 +44,27 @@ export class CollectionService {
       throw new NotFoundError("cover media not found");
     }
     if (!foundIds.has(heroId)) {
+      throw new NotFoundError("hero media not found");
+    }
+  }
+
+  /**
+   * Versi partial untuk PATCH: hanya memvalidasi media yang dikirim. Field yang
+   * `undefined` dilewati (tidak diubah).
+   */
+  private async validateMediaPartial(coverId?: string, heroId?: string) {
+    const ids = [coverId, heroId].filter(
+      (id): id is string => id !== undefined,
+    );
+    if (ids.length === 0) {
+      return;
+    }
+    const found = await this.repo.findMediaByIds(ids);
+    const foundIds = new Set(found.map((m) => m.id));
+    if (coverId !== undefined && !foundIds.has(coverId)) {
+      throw new NotFoundError("cover media not found");
+    }
+    if (heroId !== undefined && !foundIds.has(heroId)) {
       throw new NotFoundError("hero media not found");
     }
   }
@@ -145,9 +166,51 @@ export class CollectionService {
       limit,
     });
     const totalPages = Math.ceil(total / limit);
+
+    const [mapped, counts] = await Promise.all([
+      this.toResponseList(rows),
+      this.repo.countProductsByCollectionIds(rows.map((r) => r.id)),
+    ]);
+    const data = mapped.map((item) => ({
+      ...item,
+      totalProducts: counts.get(item.id) ?? 0,
+    }));
+
     return {
-      data: await this.toResponseList(rows),
+      data,
       meta: { page, limit, total, totalPages },
+    };
+  }
+
+  async getCollectionStats() {
+    const [status, totalProductsInCollections] = await Promise.all([
+      this.repo.collectionStats(),
+      this.repo.countAllProductsInCollections(),
+    ]);
+
+    return {
+      totalCollections: status.total,
+      published: status.published,
+      draft: status.draft,
+      totalProductsInCollections,
+    };
+  }
+
+  async getCollectionDetail(id: string) {
+    const existing = await this.repo.findById(id);
+    if (!existing) {
+      throw new NotFoundError("collection not found");
+    }
+
+    const [mapped, products] = await Promise.all([
+      this.toResponse(existing),
+      this.repo.findProductsByCollectionId(id),
+    ]);
+
+    return {
+      ...mapped,
+      totalProducts: products.length,
+      products,
     };
   }
 
@@ -156,39 +219,50 @@ export class CollectionService {
     if (!existing) {
       throw new NotFoundError("collection not found");
     }
-    const slugOwner = await this.repo.findBySlug(input.slug);
-    if (slugOwner && slugOwner.id !== id) {
-      throw new ConflictError("slug already exists");
+    if (input.slug !== undefined) {
+      const slugOwner = await this.repo.findBySlug(input.slug);
+      if (slugOwner && slugOwner.id !== id) {
+        throw new ConflictError("slug already exists");
+      }
     }
-    await this.validateMedia(input.coverId, input.heroId);
-    await this.validateProductIds(input.productIds);
+    await this.validateMediaPartial(input.coverId, input.heroId);
+    if (input.productIds !== undefined) {
+      await this.validateProductIds(input.productIds);
+    }
 
     const updated = await db.transaction(async (tx) => {
-      const collection = await this.repo.update(
-        id,
-        {
-          name: input.name,
-          slug: input.slug,
-          coverImage: input.coverId,
-          bannerImage: input.heroId,
-          status: input.status,
-        },
-        tx,
-      );
+      // Bangun patch hanya dari field yang dikirim; field `undefined` dibiarkan.
+      const patch: Partial<NewCollection> = {};
+      if (input.name !== undefined) patch.name = input.name;
+      if (input.slug !== undefined) patch.slug = input.slug;
+      if (input.coverId !== undefined) patch.coverImage = input.coverId;
+      if (input.heroId !== undefined) patch.bannerImage = input.heroId;
+      if (input.status !== undefined) patch.status = input.status;
 
-      await this.repo.softDeleteProductCollectionsByCollectionId(id, tx);
-      const rows = input.productIds.map((detailProductId, index) => ({
-        collectionId: id,
-        detailProductId,
-        order: index,
-      }));
-      await this.repo.insertProductCollections(rows, tx);
+      const collection =
+        Object.keys(patch).length > 0
+          ? await this.repo.update(id, patch, tx)
+          : existing;
+
+      // productIds hanya menggantikan produk bila dikirim secara eksplisit.
+      if (input.productIds !== undefined) {
+        await this.repo.softDeleteProductCollectionsByCollectionId(id, tx);
+        const rows = input.productIds.map((detailProductId, index) => ({
+          collectionId: id,
+          detailProductId,
+          order: index,
+        }));
+        await this.repo.insertProductCollections(rows, tx);
+      }
 
       return collection;
     });
 
     logger.info(
-      { collectionId: id, productCount: input.productIds.length },
+      {
+        collectionId: id,
+        productCount: input.productIds?.length,
+      },
       "collection updated",
     );
     return await this.toResponse(updated);

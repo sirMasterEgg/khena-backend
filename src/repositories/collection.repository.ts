@@ -17,7 +17,11 @@ import {
   productCollections,
 } from "../models/collection.model";
 import { type Media, media } from "../models/media.model";
-import { type DetailProduct, detailProducts } from "../models/product.model";
+import {
+  type DetailProduct,
+  detailProducts,
+  products,
+} from "../models/product.model";
 import { stampCreate, stampDelete, stampUpdate } from "../utils/audit";
 import { db, type Tx } from "../utils/db";
 
@@ -173,5 +177,109 @@ export class CollectionRepository {
     const total = Number(countResult[0]?.count ?? 0);
 
     return { rows, total };
+  }
+
+  /** Agregat status collection untuk GET /collections/stats. */
+  async collectionStats(): Promise<{
+    total: number;
+    published: number;
+    draft: number;
+  }> {
+    const result = await db
+      .select({
+        total: sql<number>`count(*)`,
+        published: sql<number>`count(*) filter (where ${collections.status} = 'published')`,
+        draft: sql<number>`count(*) filter (where ${collections.status} = 'draft')`,
+      })
+      .from(collections)
+      .where(isNull(collections.deletedAt));
+    const row = result[0];
+
+    return {
+      total: Number(row?.total ?? 0),
+      published: Number(row?.published ?? 0),
+      draft: Number(row?.draft ?? 0),
+    };
+  }
+
+  /** Total produk yang tergabung di seluruh collection aktif. */
+  async countAllProductsInCollections(): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(productCollections)
+      .innerJoin(
+        collections,
+        eq(productCollections.collectionId, collections.id),
+      )
+      .where(
+        and(
+          isNull(productCollections.deletedAt),
+          isNull(collections.deletedAt),
+        ),
+      );
+    return Number(result[0]?.count ?? 0);
+  }
+
+  /**
+   * Jumlah produk per collection dalam satu query (hindari N+1). Hanya
+   * menghitung baris product_collection yang masih aktif.
+   */
+  async countProductsByCollectionIds(
+    ids: string[],
+  ): Promise<Map<string, number>> {
+    if (ids.length === 0) {
+      return new Map();
+    }
+    const rows = await db
+      .select({
+        collectionId: productCollections.collectionId,
+        count: sql<number>`count(*)`,
+      })
+      .from(productCollections)
+      .where(
+        and(
+          inArray(productCollections.collectionId, ids),
+          isNull(productCollections.deletedAt),
+        ),
+      )
+      .groupBy(productCollections.collectionId);
+    return new Map(rows.map((r) => [r.collectionId, Number(r.count)]));
+  }
+
+  /**
+   * Produk (varian) dalam sebuah collection, terurut berdasarkan `order`.
+   * Hanya baris aktif (product_collection, detail product, & produk induk
+   * belum di-soft-delete).
+   */
+  async findProductsByCollectionId(collectionId: string): Promise<
+    {
+      id: string;
+      name: string;
+      sku: string;
+      order: number;
+    }[]
+  > {
+    return await db
+      .select({
+        id: detailProducts.id,
+        name: products.name,
+        sku: detailProducts.detailProductSku,
+        order: productCollections.order,
+      })
+      .from(productCollections)
+      .innerJoin(
+        detailProducts,
+        eq(productCollections.detailProductId, detailProducts.id),
+      )
+      .innerJoin(products, eq(detailProducts.productId, products.id))
+      .where(
+        and(
+          eq(productCollections.collectionId, collectionId),
+          isNull(productCollections.deletedAt),
+          isNull(detailProducts.deletedAt),
+          isNull(products.deletedAt),
+        ),
+      )
+      .orderBy(asc(productCollections.order));
   }
 }
