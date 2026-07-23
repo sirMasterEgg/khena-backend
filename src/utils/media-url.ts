@@ -31,3 +31,16 @@ export function toMediaResponse(row: Media) {
 export function toMediaResponseNullable(row: Media | null | undefined) {
   return row ? toMediaResponse(row) : null;
 }
+
+/**
+ * Kebalikan dari `buildMediaUrl`: ambil objectKey dari sebuah URL publik.
+ * Mengembalikan `null` kalau URL tidak diawali `PUBLIC_BASE_URL` (bukan URL
+ * media milik server ini).
+ */
+export function objectKeyFromUrl(url: string): string | null {
+  if (!url.startsWith(`${PUBLIC_BASE_URL}/`)) {
+    return null;
+  }
+  const encodedKey = url.slice(PUBLIC_BASE_URL.length + 1);
+  return encodedKey.split("/").map(decodeURIComponent).join("/");
+}

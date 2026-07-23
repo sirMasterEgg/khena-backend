@@ -1,3 +1,5 @@
+import { parse } from "csv-parse/sync";
+import { stringify } from "csv-stringify/sync";
 import type { NewProduct } from "../models/product.model";
 import type {
   ProductListFilter,
@@ -6,7 +8,11 @@ import type {
 import { db } from "../utils/db";
 import { BadRequestError, ConflictError, NotFoundError } from "../utils/errors";
 import { logger } from "../utils/logger";
-import { toMediaResponse, toMediaResponseNullable } from "../utils/media-url";
+import {
+  objectKeyFromUrl,
+  toMediaResponse,
+  toMediaResponseNullable,
+} from "../utils/media-url";
 
 interface ProductDimensionInput {
   width: number;
@@ -57,6 +63,105 @@ interface ListProductsInput {
   status?: string;
   sort: ProductListFilter["sort"];
   order: ProductListFilter["order"];
+}
+
+// Urutan & nama kolom kontrak CSV bulk export/import (lihat contract.md).
+// Dipakai bersama oleh export (stringify) & import (validasi header) supaya
+// tidak perlu disinkronkan manual di dua tempat.
+const CSV_COLUMNS = [
+  "productName",
+  "baseSku",
+  "categoryName",
+  "collectionSlug",
+  "status",
+  "description",
+  "materialInformation",
+  "lowStockAlert",
+  "careInstructions",
+  "productDimensionWidth",
+  "productDimensionDepth",
+  "productDimensionHeight",
+  "productDimensionWeight",
+  "productDimensionImageUrl",
+  "boxDimensionWidth",
+  "boxDimensionDepth",
+  "boxDimensionHeight",
+  "boxDimensionWeight",
+  "boxDimensionImageUrl",
+  "mediaUrls",
+  "variantSku",
+  "variantColor",
+  "variantVisibility",
+  "variantPrice",
+  "variantCapitalPrice",
+  "variantDiscountPercent",
+  "variantMarketplacePrice",
+  "variantInitialStock",
+  "variantImageUrls",
+] as const;
+
+// Kolom opsional (lihat tabel kontrak Tahap 4) — sisanya wajib ada di header.
+const OPTIONAL_CSV_COLUMNS: ReadonlySet<string> = new Set([
+  "collectionSlug",
+  "description",
+  "lowStockAlert",
+  "variantDiscountPercent",
+  "variantMarketplacePrice",
+]);
+
+const VALID_PRODUCT_STATUSES = new Set([
+  "published",
+  "draft",
+  "scheduled",
+  "archived",
+]);
+
+interface BulkImportRowResult {
+  baseSku: string;
+  status: "success" | "failed";
+  productId?: string;
+  error?: string;
+}
+
+interface BulkImportSummary {
+  total: number;
+  successCount: number;
+  failedCount: number;
+  results: BulkImportRowResult[];
+}
+
+function splitCsvList(cell: string | undefined): string[] {
+  return (cell ?? "")
+    .split(";")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function requireCsvString(value: string | undefined, label: string): string {
+  const v = (value ?? "").trim();
+  if (!v) {
+    throw new BadRequestError(`${label} wajib diisi`);
+  }
+  return v;
+}
+
+function csvNumber(
+  value: string | undefined,
+  label: string,
+  required: boolean,
+): number | undefined {
+  const trimmed = (value ?? "").trim();
+  if (!trimmed) {
+    if (required) {
+      throw new BadRequestError(`${label} wajib diisi`);
+    }
+    return undefined;
+  }
+  const n = Number(trimmed);
+  if (Number.isNaN(n)) {
+    throw new BadRequestError(`${label} harus berupa angka, dapat "${value}"`);
+  }
+  return n;
 }
 
 export class ProductService {
@@ -133,9 +238,7 @@ export class ProductService {
       ...(input.variant?.flatMap((v) => v.images) ?? []),
     ];
     const foundMedia =
-      allMediaIds.length > 0
-        ? await this.repo.findMediaByIds(allMediaIds)
-        : [];
+      allMediaIds.length > 0 ? await this.repo.findMediaByIds(allMediaIds) : [];
     const foundMediaIds = new Set(foundMedia.map((m) => m.id));
     const getMediaId = (mediaId: string) => {
       if (!foundMediaIds.has(mediaId)) {
@@ -613,5 +716,412 @@ export class ProductService {
     });
 
     logger.info({ productId: id }, "product deleted");
+  }
+
+  /**
+   * Export semua produk aktif menjadi string CSV (1 baris per varian, kolom
+   * relasi ditulis human-readable). Dibangun di memori, tidak menyentuh
+   * object storage — lihat kontrak Tahap 4/5.1.
+   */
+  async exportProductsCsv(): Promise<string> {
+    const ids = await this.repo.findAllActiveIds();
+    // TODO: optimalkan N+1 (satu query per produk via getProductDetail).
+    const details = await Promise.all(
+      ids.map((id) => this.getProductDetail(id)),
+    );
+
+    const allColorIds = [
+      ...new Set(details.flatMap((d) => d.variants.map((v) => v.colorId))),
+    ];
+    const colorRows = await this.repo.findColorsWithFinishByIds(allColorIds);
+    const colorById = new Map(colorRows.map((c) => [c.id, c]));
+
+    const collectionSlugs = await Promise.all(
+      details.map((d) => this.repo.findCollectionSlugByProductId(d.id)),
+    );
+    const collectionSlugByProductId = new Map(
+      details.map((d, i) => [d.id, collectionSlugs[i] ?? ""]),
+    );
+
+    const allDetailProductIds = details.flatMap((d) =>
+      d.variants.map((v) => v.id),
+    );
+    const stockByDetailProductId =
+      await this.repo.findStockTotalsByDetailProductIds(allDetailProductIds);
+
+    const rows: Record<string, string | number>[] = [];
+    for (const detail of details) {
+      const collectionSlug = collectionSlugByProductId.get(detail.id) ?? "";
+      for (const variant of detail.variants) {
+        const color = colorById.get(variant.colorId);
+        const variantColor = color
+          ? color.finishName
+            ? `${color.name}|${color.finishName}`
+            : color.name
+          : "";
+
+        rows.push({
+          productName: detail.name,
+          baseSku: detail.baseSku,
+          categoryName: detail.category.name,
+          collectionSlug,
+          status: detail.status ?? "",
+          description: detail.description ?? "",
+          materialInformation: detail.materials ?? "",
+          lowStockAlert: detail.lowStockAlert ?? "",
+          careInstructions: detail.careInstructions
+            .map((c) => c.instruction)
+            .join(";"),
+          productDimensionWidth: detail.productDimension.width ?? "",
+          productDimensionDepth: detail.productDimension.depth ?? "",
+          productDimensionHeight: detail.productDimension.height ?? "",
+          productDimensionWeight: detail.productDimension.weight ?? "",
+          productDimensionImageUrl: detail.productDimension.media?.url ?? "",
+          boxDimensionWidth: detail.boxDimension.width ?? "",
+          boxDimensionDepth: detail.boxDimension.depth ?? "",
+          boxDimensionHeight: detail.boxDimension.height ?? "",
+          boxDimensionWeight: detail.boxDimension.weight ?? "",
+          boxDimensionImageUrl: detail.boxDimension.media?.url ?? "",
+          mediaUrls: detail.media.map((m) => m.url).join(";"),
+          variantSku: variant.detailProductSku,
+          variantColor,
+          variantVisibility: variant.visibility,
+          variantPrice: variant.price,
+          variantCapitalPrice: variant.capitalPrice,
+          variantDiscountPercent: variant.discountPercent ?? "",
+          variantMarketplacePrice: variant.marketplacePrice ?? "",
+          // getProductDetail tidak mengembalikan initialStock — pakai stok
+          // saat ini bila tersedia, 0 bila tidak (keterbatasan yang diketahui).
+          variantInitialStock: stockByDetailProductId.get(variant.id) ?? 0,
+          variantImageUrls: variant.images.map((i) => i.url).join(";"),
+        });
+      }
+    }
+
+    return stringify(rows, {
+      header: true,
+      columns: CSV_COLUMNS as unknown as string[],
+    });
+  }
+
+  /**
+   * Import banyak produk sekaligus dari isi CSV (bukan URL — file dibaca di
+   * memori oleh controller). Create-only: baseSku yang sudah ada akan gagal.
+   * Satu produk gagal tidak membatalkan produk lain (partial success).
+   */
+  async importProductsCsv(csvText: string): Promise<BulkImportSummary> {
+    let records: Record<string, string>[];
+    try {
+      records = parse(csvText, {
+        columns: true,
+        skip_empty_lines: true,
+        trim: true,
+      }) as Record<string, string>[];
+    } catch (err) {
+      throw new BadRequestError(
+        `csv tidak valid: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+
+    if (records.length === 0) {
+      throw new BadRequestError("csv kosong");
+    }
+
+    const header = Object.keys(records[0] as Record<string, string>);
+    const missingColumns = CSV_COLUMNS.filter(
+      (c) => !OPTIONAL_CSV_COLUMNS.has(c) && !header.includes(c),
+    );
+    if (missingColumns.length > 0) {
+      throw new BadRequestError(
+        `kolom CSV tidak lengkap: ${missingColumns.join(", ")}`,
+      );
+    }
+
+    // ---- Kumpulkan nilai distinct dari semua baris untuk resolve batch ----
+    const categoryNames = new Set<string>();
+    const collectionSlugs = new Set<string>();
+    const careInstructionTexts = new Set<string>();
+    const colorNames = new Set<string>();
+    const objectKeys = new Set<string>();
+
+    const collectObjectKey = (url: string | undefined) => {
+      const key = url ? objectKeyFromUrl(url) : null;
+      if (key) {
+        objectKeys.add(key);
+      }
+    };
+
+    for (const row of records) {
+      if (row.categoryName) {
+        categoryNames.add(row.categoryName);
+      }
+      if (row.collectionSlug) {
+        collectionSlugs.add(row.collectionSlug);
+      }
+      for (const text of splitCsvList(row.careInstructions)) {
+        careInstructionTexts.add(text);
+      }
+      const colorName = (row.variantColor ?? "").split("|")[0]?.trim();
+      if (colorName) {
+        colorNames.add(colorName);
+      }
+      collectObjectKey(row.productDimensionImageUrl);
+      collectObjectKey(row.boxDimensionImageUrl);
+      for (const url of splitCsvList(row.mediaUrls)) {
+        collectObjectKey(url);
+      }
+      for (const url of splitCsvList(row.variantImageUrls)) {
+        collectObjectKey(url);
+      }
+    }
+
+    const [categoryRows, collectionRows, careRows, colorRows, mediaRows] =
+      await Promise.all([
+        this.repo.findCategoriesByNames([...categoryNames]),
+        this.repo.findCollectionsBySlugs([...collectionSlugs]),
+        this.repo.findCareInstructionsByTexts([...careInstructionTexts]),
+        this.repo.findColorsByNameAndFinish([...colorNames]),
+        this.repo.findMediaByObjectKeys([...objectKeys]),
+      ]);
+
+    const categoryMap = new Map<string, string[]>();
+    for (const r of categoryRows) {
+      categoryMap.set(r.category, [
+        ...(categoryMap.get(r.category) ?? []),
+        r.id,
+      ]);
+    }
+    const collectionMap = new Map(collectionRows.map((r) => [r.slug, r.id]));
+    const careMap = new Map<string, string[]>();
+    for (const r of careRows) {
+      careMap.set(r.instruction, [...(careMap.get(r.instruction) ?? []), r.id]);
+    }
+    const colorMap = new Map<string, string[]>();
+    for (const r of colorRows) {
+      const key = r.finishName ? `${r.name}|${r.finishName}` : r.name;
+      colorMap.set(key, [...(colorMap.get(key) ?? []), r.id]);
+    }
+    const mediaMap = new Map(mediaRows.map((r) => [r.objectKey, r.id]));
+
+    // ---- Group by baseSku (pertahankan urutan kemunculan pertama) ----
+    const groups = new Map<string, Record<string, string>[]>();
+    for (const row of records) {
+      const baseSku = row.baseSku ?? "";
+      const list = groups.get(baseSku) ?? [];
+      list.push(row);
+      groups.set(baseSku, list);
+    }
+
+    const lookups = { categoryMap, collectionMap, careMap, colorMap, mediaMap };
+    const results: BulkImportRowResult[] = [];
+    let successCount = 0;
+    let failedCount = 0;
+
+    for (const [baseSku, rows] of groups) {
+      try {
+        const input = this.buildCreateInputFromCsvRows(rows, lookups);
+        const product = await this.createProduct(input);
+        results.push({ baseSku, status: "success", productId: product.id });
+        successCount++;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        results.push({ baseSku, status: "failed", error: message });
+        failedCount++;
+      }
+    }
+
+    return { total: groups.size, successCount, failedCount, results };
+  }
+
+  private resolveCsvId(
+    map: Map<string, string[]>,
+    key: string,
+    label: string,
+  ): string {
+    const ids = map.get(key) ?? [];
+    if (ids.length === 0) {
+      throw new NotFoundError(`${label} "${key}" not found`);
+    }
+    if (ids.length > 1) {
+      throw new BadRequestError(
+        `${label} "${key}" ambiguous (${ids.length} matches)`,
+      );
+    }
+    return ids[0] as string;
+  }
+
+  private buildCreateInputFromCsvRows(
+    rows: Record<string, string>[],
+    lookups: {
+      categoryMap: Map<string, string[]>;
+      collectionMap: Map<string, string>;
+      careMap: Map<string, string[]>;
+      colorMap: Map<string, string[]>;
+      mediaMap: Map<string, string>;
+    },
+  ): CreateProductInput {
+    const first = rows[0];
+    if (!first) {
+      throw new BadRequestError("grup baseSku kosong");
+    }
+
+    const resolveMedia = (url: string | undefined, label: string): string => {
+      const key = url ? objectKeyFromUrl(url) : null;
+      const id = key ? lookups.mediaMap.get(key) : undefined;
+      if (!id) {
+        throw new NotFoundError(`${label} "${url ?? ""}" not found`);
+      }
+      return id;
+    };
+
+    const categoryName = requireCsvString(first.categoryName, "categoryName");
+    const categoryId = this.resolveCsvId(
+      lookups.categoryMap,
+      categoryName,
+      "category",
+    );
+
+    const collectionSlug = (first.collectionSlug ?? "").trim();
+    let collectionId: string | undefined;
+    if (collectionSlug) {
+      collectionId = lookups.collectionMap.get(collectionSlug);
+      if (!collectionId) {
+        throw new NotFoundError(`collection "${collectionSlug}" not found`);
+      }
+    }
+
+    const status = requireCsvString(first.status, "status");
+    if (!VALID_PRODUCT_STATUSES.has(status)) {
+      throw new BadRequestError(`status "${status}" tidak valid`);
+    }
+
+    const careInstructionTexts = splitCsvList(first.careInstructions);
+    if (careInstructionTexts.length === 0) {
+      throw new BadRequestError("careInstructions wajib diisi minimal 1");
+    }
+    const careInstructionIds = careInstructionTexts.map((text) =>
+      this.resolveCsvId(lookups.careMap, text, "care instruction"),
+    );
+
+    const mediaUrls = splitCsvList(first.mediaUrls);
+    if (mediaUrls.length === 0) {
+      throw new BadRequestError("mediaUrls wajib diisi minimal 1");
+    }
+
+    const variant: ProductVariantInput[] = rows.map((row) => {
+      const [colorNameRaw, finishNameRaw] = (row.variantColor ?? "").split("|");
+      const colorName = (colorNameRaw ?? "").trim();
+      const finishName = finishNameRaw?.trim();
+      const colorKey = finishName ? `${colorName}|${finishName}` : colorName;
+      const colorId = this.resolveCsvId(
+        lookups.colorMap,
+        colorKey,
+        "variantColor",
+      );
+
+      const variantImageUrls = splitCsvList(row.variantImageUrls);
+      if (variantImageUrls.length === 0) {
+        throw new BadRequestError("variantImageUrls wajib diisi minimal 1");
+      }
+
+      return {
+        colorId,
+        sku: requireCsvString(row.variantSku, "variantSku"),
+        visibility: requireCsvString(
+          row.variantVisibility,
+          "variantVisibility",
+        ),
+        price: csvNumber(row.variantPrice, "variantPrice", true) as number,
+        capitalPrice: csvNumber(
+          row.variantCapitalPrice,
+          "variantCapitalPrice",
+          true,
+        ) as number,
+        discountPercent: csvNumber(
+          row.variantDiscountPercent,
+          "variantDiscountPercent",
+          false,
+        ),
+        marketplacePrice: csvNumber(
+          row.variantMarketplacePrice,
+          "variantMarketplacePrice",
+          false,
+        ),
+        initialStock: csvNumber(
+          row.variantInitialStock,
+          "variantInitialStock",
+          true,
+        ) as number,
+        images: variantImageUrls.map((url) =>
+          resolveMedia(url, "variantImageUrls"),
+        ),
+      };
+    });
+
+    return {
+      productName: requireCsvString(first.productName, "productName"),
+      baseSku: requireCsvString(first.baseSku, "baseSku"),
+      collectionId,
+      categoryId,
+      status,
+      description: first.description?.trim() || undefined,
+      materialInformation: requireCsvString(
+        first.materialInformation,
+        "materialInformation",
+      ),
+      lowStockAlert: csvNumber(first.lowStockAlert, "lowStockAlert", false),
+      careInstructionIds,
+      productDimension: {
+        width: csvNumber(
+          first.productDimensionWidth,
+          "productDimensionWidth",
+          true,
+        ) as number,
+        depth: csvNumber(
+          first.productDimensionDepth,
+          "productDimensionDepth",
+          true,
+        ) as number,
+        height: csvNumber(
+          first.productDimensionHeight,
+          "productDimensionHeight",
+          true,
+        ) as number,
+        weight: csvNumber(
+          first.productDimensionWeight,
+          "productDimensionWeight",
+          true,
+        ) as number,
+        image: resolveMedia(
+          first.productDimensionImageUrl,
+          "productDimensionImageUrl",
+        ),
+      },
+      boxDimension: {
+        width: csvNumber(
+          first.boxDimensionWidth,
+          "boxDimensionWidth",
+          true,
+        ) as number,
+        depth: csvNumber(
+          first.boxDimensionDepth,
+          "boxDimensionDepth",
+          true,
+        ) as number,
+        height: csvNumber(
+          first.boxDimensionHeight,
+          "boxDimensionHeight",
+          true,
+        ) as number,
+        weight: csvNumber(
+          first.boxDimensionWeight,
+          "boxDimensionWeight",
+          true,
+        ) as number,
+        image: resolveMedia(first.boxDimensionImageUrl, "boxDimensionImageUrl"),
+      },
+      media: mediaUrls.map((url) => resolveMedia(url, "mediaUrls")),
+      variant,
+    };
   }
 }

@@ -22,6 +22,7 @@ import {
   productCollections,
 } from "../models/collection.model";
 import { colors } from "../models/color.model";
+import { finishes } from "../models/finish.model";
 import { type Media, media } from "../models/media.model";
 import {
   type DetailProduct,
@@ -112,6 +113,149 @@ export class ProductRepository {
           isNull(careInstructions.deletedAt),
         ),
       );
+  }
+
+  // ---- bulk csv: resolve nilai human-readable → id (import) ----
+
+  async findCategoriesByNames(
+    names: string[],
+  ): Promise<{ id: string; category: string }[]> {
+    if (names.length === 0) {
+      return [];
+    }
+    return await db
+      .select({ id: categories.id, category: categories.category })
+      .from(categories)
+      .where(
+        and(inArray(categories.category, names), isNull(categories.deletedAt)),
+      );
+  }
+
+  async findCollectionsBySlugs(
+    slugs: string[],
+  ): Promise<{ id: string; slug: string }[]> {
+    if (slugs.length === 0) {
+      return [];
+    }
+    return await db
+      .select({ id: collections.id, slug: collections.slug })
+      .from(collections)
+      .where(
+        and(inArray(collections.slug, slugs), isNull(collections.deletedAt)),
+      );
+  }
+
+  async findCareInstructionsByTexts(
+    texts: string[],
+  ): Promise<{ id: string; instruction: string }[]> {
+    if (texts.length === 0) {
+      return [];
+    }
+    return await db
+      .select({
+        id: careInstructions.id,
+        instruction: careInstructions.instruction,
+      })
+      .from(careInstructions)
+      .where(
+        and(
+          inArray(careInstructions.instruction, texts),
+          isNull(careInstructions.deletedAt),
+        ),
+      );
+  }
+
+  // Difilter hanya berdasarkan nama color; pencocokan finish dilakukan di
+  // service (satu nama color bisa punya banyak finish berbeda).
+  async findColorsByNameAndFinish(
+    names: string[],
+  ): Promise<{ id: string; name: string; finishName: string | null }[]> {
+    if (names.length === 0) {
+      return [];
+    }
+    return await db
+      .select({ id: colors.id, name: colors.name, finishName: finishes.name })
+      .from(colors)
+      .leftJoin(finishes, eq(colors.finishesId, finishes.id))
+      .where(and(inArray(colors.name, names), isNull(colors.deletedAt)));
+  }
+
+  async findMediaByObjectKeys(
+    objectKeys: string[],
+  ): Promise<{ id: string; objectKey: string }[]> {
+    if (objectKeys.length === 0) {
+      return [];
+    }
+    return await db
+      .select({ id: media.id, objectKey: media.objectKey })
+      .from(media)
+      .where(
+        and(inArray(media.objectKey, objectKeys), isNull(media.deletedAt)),
+      );
+  }
+
+  // ---- bulk csv: id → nilai human-readable (export) ----
+
+  async findAllActiveIds(): Promise<string[]> {
+    const rows = await db
+      .select({ id: products.id })
+      .from(products)
+      .where(isNull(products.deletedAt));
+    return rows.map((r) => r.id);
+  }
+
+  async findColorsWithFinishByIds(
+    ids: string[],
+  ): Promise<{ id: string; name: string; finishName: string | null }[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+    return await db
+      .select({ id: colors.id, name: colors.name, finishName: finishes.name })
+      .from(colors)
+      .leftJoin(finishes, eq(colors.finishesId, finishes.id))
+      .where(inArray(colors.id, ids));
+  }
+
+  async findCollectionSlugByProductId(
+    productId: string,
+  ): Promise<string | null> {
+    const rows = await db
+      .select({ slug: collections.slug })
+      .from(productCollections)
+      .innerJoin(
+        detailProducts,
+        eq(productCollections.detailProductId, detailProducts.id),
+      )
+      .innerJoin(
+        collections,
+        eq(productCollections.collectionId, collections.id),
+      )
+      .where(
+        and(
+          eq(detailProducts.productId, productId),
+          isNull(productCollections.deletedAt),
+        ),
+      )
+      .limit(1);
+    return rows[0]?.slug ?? null;
+  }
+
+  async findStockTotalsByDetailProductIds(
+    ids: string[],
+  ): Promise<Map<string, number>> {
+    if (ids.length === 0) {
+      return new Map();
+    }
+    const rows = await db
+      .select({
+        detailProductId: stocks.detailProductId,
+        qty: sql<number>`sum(${stocks.quantity})`,
+      })
+      .from(stocks)
+      .where(inArray(stocks.detailProductId, ids))
+      .groupBy(stocks.detailProductId);
+    return new Map(rows.map((r) => [r.detailProductId, Number(r.qty)]));
   }
 
   // ---- list ----
