@@ -82,6 +82,35 @@ export const collectionModel = t.Object({
   ...auditColumns,
 });
 
+/** Item pada list collection berpaginasi (GET /api/collections). */
+export const collectionListItemModel = t.Object({
+  ...collectionModel.properties,
+  totalProducts: t.Number(),
+});
+
+/** Produk (varian) yang di-nest di dalam detail collection. */
+export const collectionProductModel = t.Object({
+  id: t.String(),
+  name: t.String(),
+  sku: t.String(),
+  order: t.Number(),
+});
+
+/** Detail satu collection beserta produk-produknya (GET /api/collections/:id). */
+export const collectionDetailModel = t.Object({
+  ...collectionModel.properties,
+  totalProducts: t.Number(),
+  products: t.Array(collectionProductModel),
+});
+
+/** Agregat collection untuk dashboard (GET /api/collections/stats). */
+export const collectionStatsModel = t.Object({
+  totalCollections: t.Number(),
+  published: t.Number(),
+  draft: t.Number(),
+  totalProductsInCollections: t.Number(),
+});
+
 export const finishModel = t.Object({
   id: t.String(),
   name: t.String(),
