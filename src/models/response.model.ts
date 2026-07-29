@@ -226,3 +226,53 @@ export const productStatsModel = t.Object({
   totalScheduled: t.Number(),
   totalArchived: t.Number(),
 });
+
+const nullableDate = t.Union([t.Date(), t.Null()]);
+
+export const customerModel = t.Object({
+  id: t.String(),
+  name: t.String(),
+  email: t.String(),
+  phone: t.String(),
+  totalOrder: t.Number(),
+  lifetimeValue: t.Number(),
+  lastOrderAt: nullableDate,
+  joinedAt: t.Date(),
+  internalNotes: nullableString,
+  ...auditColumns,
+});
+
+/** Item pada list customer berpaginasi (GET /api/customers). */
+export const customerListItemModel = t.Object({
+  id: t.String(),
+  name: t.String(),
+  email: t.String(),
+  phone: t.String(),
+  totalOrder: t.Number(),
+  lifetimeValue: t.Number(),
+  lastOrderAt: nullableDate,
+  joinedAt: t.Date(),
+  segment: t.String(),
+});
+
+/** Detail satu customer (GET /api/customers/:id). */
+export const customerDetailModel = t.Object({
+  id: t.String(),
+  name: t.String(),
+  email: t.String(),
+  phone: t.String(),
+  joinedAt: t.Date(),
+  internalNotes: nullableString,
+  totalOrders: t.Number(),
+  lifetimeValue: t.Number(),
+  averageOrder: t.Number(),
+  segment: t.String(),
+});
+
+/** Agregat customer untuk dashboard (GET /api/customers/stats). */
+export const customerStatsModel = t.Object({
+  totalCustomers: t.Number(),
+  vipCustomers: t.Number(),
+  newThisMonth: t.Number(),
+  avgLifetimeValue: t.Number(),
+});

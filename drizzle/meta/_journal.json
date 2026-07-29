@@ -78,6 +78,13 @@
       "when": 1784696682070,
       "tag": "0010_change_stocks_to_product_variant",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1785166821748,
+      "tag": "0011_alter_customer_table",
+      "breakpoints": true
     }
   ]
 }
