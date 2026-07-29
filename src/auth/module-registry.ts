@@ -11,6 +11,7 @@ export const MODULE_REGISTRY = {
   role: ["create", "read", "update", "delete"],
   permission: ["read"],
   administrator: ["create", "read", "update", "delete"],
+  customer: ["create", "read", "update"],
 } as const;
 
 export type ModuleName = keyof typeof MODULE_REGISTRY;
