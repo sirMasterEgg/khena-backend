@@ -11,7 +11,9 @@ import { CustomerRoute } from "./routes/customer.route";
 import { FinishRoute } from "./routes/finish.route";
 import { MediaRoute } from "./routes/media.route";
 import { ProductRoute } from "./routes/product.route";
+import { PurchaseOrderRoute } from "./routes/purchase-order.route";
 import { RoomTypeRoute } from "./routes/room-type.route";
+import { SupplierRoute } from "./routes/supplier.route";
 import { AppError, errorBody } from "./utils/errors";
 import { logger } from "./utils/logger";
 
@@ -70,7 +72,9 @@ const app = new Elysia({ prefix: "/api" })
   .use(FinishRoute)
   .use(ColorRoute)
   .use(CareInstructionRoute)
-  .use(CustomerRoute);
+  .use(CustomerRoute)
+  .use(SupplierRoute)
+  .use(PurchaseOrderRoute);
 
 app.listen(port, () => {
   logger.info(`🦊 Server running at http://localhost:${port}`);
