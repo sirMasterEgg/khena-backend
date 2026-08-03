@@ -10,7 +10,7 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 import { auditColumns } from "./audit-columns";
-import { products } from "./product.model";
+import { detailProducts } from "./product.model";
 import { suppliers } from "./supplier.model";
 
 export const purchaseOrders = pgTable(
@@ -46,9 +46,9 @@ export const purchaseOrderItems = pgTable("purchase_order_items", {
   purchaseOrderId: uuid("purchase_order_id")
     .notNull()
     .references(() => purchaseOrders.id),
-  productId: uuid("product_id")
+  detailProductId: uuid("detail_product_id")
     .notNull()
-    .references(() => products.id),
+    .references(() => detailProducts.id),
   quantity: integer("quantity").notNull(),
   unitPrice: bigint("unit_price", { mode: "number" }).notNull(),
   ...auditColumns,

@@ -85,6 +85,13 @@
       "when": 1785166821748,
       "tag": "0011_alter_customer_table",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1785340155828,
+      "tag": "0012_alter_purchase_order_item_to_detail_product",
+      "breakpoints": true
     }
   ]
 }

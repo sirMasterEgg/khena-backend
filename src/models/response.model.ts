@@ -276,3 +276,87 @@ export const customerStatsModel = t.Object({
   newThisMonth: t.Number(),
   avgLifetimeValue: t.Number(),
 });
+
+/** Satu supplier utuh (POST /suppliers, PATCH /suppliers/:id). */
+export const supplierModel = t.Object({
+  id: t.String(),
+  name: t.String(),
+  contactPerson: nullableString,
+  phone: nullableString,
+  email: nullableString,
+  note: nullableString,
+  ...auditColumns,
+});
+
+/** Item pada list supplier (GET /suppliers). */
+export const supplierListItemModel = t.Object({
+  id: t.String(),
+  name: t.String(),
+  contactPerson: nullableString,
+  phone: nullableString,
+  email: nullableString,
+});
+
+/** Detail satu supplier (GET /suppliers/:id). */
+export const supplierDetailModel = t.Object({
+  id: t.String(),
+  name: t.String(),
+  contactPerson: nullableString,
+  phone: nullableString,
+  email: nullableString,
+  note: nullableString,
+});
+
+/** Satu purchase order utuh (POST, PATCH). */
+export const purchaseOrderModel = t.Object({
+  id: t.String(),
+  invoiceNumber: t.String(),
+  supplierId: t.String(),
+  orderDate: t.String(),
+  expectedDeliveryDate: nullableString,
+  totalAmount: t.Number(),
+  status: t.String(),
+  note: nullableString,
+  ...auditColumns,
+});
+
+/** Item pada list purchase order (GET /purchase-orders). */
+export const purchaseOrderListItemModel = t.Object({
+  id: t.String(),
+  invoiceNumber: t.String(),
+  supplierName: t.String(),
+  orderDate: t.String(),
+  totalItems: t.Number(),
+  totalAmount: t.Number(),
+  status: t.String(),
+});
+
+/** Detail satu purchase order beserta itemnya (GET /purchase-orders/:id). */
+export const purchaseOrderDetailModel = t.Object({
+  id: t.String(),
+  invoiceNumber: t.String(),
+  supplierId: t.String(),
+  supplierName: t.String(),
+  orderDate: t.String(),
+  expectedDeliveryDate: nullableString,
+  status: t.String(),
+  totalAmount: t.Number(),
+  note: nullableString,
+  products: t.Array(
+    t.Object({
+      detailProductId: t.String(),
+      sku: t.String(),
+      productName: t.String(),
+      quantity: t.Number(),
+      unitCost: t.Number(),
+      subtotal: t.Number(),
+    }),
+  ),
+});
+
+/** Agregat untuk dashboard (GET /purchase-orders/stats). */
+export const purchaseOrderStatsModel = t.Object({
+  onOrder: t.Number(),
+  onOrderValue: t.Number(),
+  totalSuppliers: t.Number(),
+});
