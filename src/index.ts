@@ -16,6 +16,7 @@ import { PointOfSaleRoute } from "./routes/point-of-sale.route";
 import { ProductRoute } from "./routes/product.route";
 import { PurchaseOrderRoute } from "./routes/purchase-order.route";
 import { RoomTypeRoute } from "./routes/room-type.route";
+import { StockRoute } from "./routes/stock.route";
 import { SupplierRoute } from "./routes/supplier.route";
 import { AppError, errorBody } from "./utils/errors";
 import { logger } from "./utils/logger";
@@ -80,7 +81,8 @@ const app = new Elysia({ prefix: "/api" })
   .use(PurchaseOrderRoute)
   .use(DiscountRoute)
   .use(PointOfSaleRoute)
-  .use(OrderSalesRoute);
+  .use(OrderSalesRoute)
+  .use(StockRoute);
 
 app.listen(port, () => {
   logger.info(`🦊 Server running at http://localhost:${port}`);

@@ -461,6 +461,71 @@ export const shippingCostModel = t.Object({
   shippingCost: t.Number(),
 });
 
+/** Agregat stok untuk dashboard (GET /api/stocks/stats). */
+export const stockStatsModel = t.Object({
+  totalInventory: t.Number(),
+  totalOutOfStock: t.Number(),
+  totalRunningLow: t.Number(),
+  totalUpdatesToday: t.Number(),
+});
+
+/** Satu baris riwayat perubahan stok (GET /api/stocks/adjustments/activity). */
+export const stockActivityItemModel = t.Object({
+  id: t.String(),
+  source: t.Union([t.Literal("ADJUSTMENT"), t.Literal("SYSTEM")]),
+  sku: t.String(),
+  productName: t.String(),
+  quantity: t.Number(), // signed: +10 / -3
+  reason: nullableString,
+  by: nullableString,
+  timestamp: t.Date(),
+});
+
+/** Hasil satu baris adjustment (POST /api/stocks/adjustments). */
+export const stockAdjustmentResultModel = t.Object({
+  id: t.String(),
+  sku: t.String(),
+  adjustmentType: t.Union([t.Literal("increase"), t.Literal("decrease")]),
+  quantity: t.Number(), // qty yang diminta, selalu positif
+  stockBefore: t.Number(),
+  stockAfter: t.Number(),
+  reason: nullableString,
+});
+
+/** Ringkasan hasil upload CSV (POST /api/stocks/bulk-adjustments). */
+export const stockBulkAdjustmentResultModel = t.Object({
+  total: t.Number(),
+  successCount: t.Number(),
+  failedCount: t.Number(),
+  results: t.Array(
+    t.Object({
+      row: t.Number(), // nomor baris data, mulai dari 1 (header tidak dihitung)
+      sku: t.String(),
+      status: t.Union([t.Literal("success"), t.Literal("failed")]),
+      error: t.Optional(t.String()),
+    }),
+  ),
+});
+
+/** Satu varian yang perlu di-restock (GET /api/stocks/reorder-list). */
+export const stockReorderItemModel = t.Object({
+  id: t.String(), // uuid varian (detail_products.id)
+  name: t.String(), // nama produk induk
+  sku: t.String(),
+  image: nullableMediaModel, // gambar pertama varian, null bila belum ada
+  inStock: t.Number(),
+  reorderAt: nullableNumber, // = products.min_stock_alert, null bila belum diset
+  status: t.Union([t.Literal("OUT_OF_STOCK"), t.Literal("RUNNING_LOW")]),
+});
+
+/** Status stok satu varian by SKU (GET /api/stocks/:sku/status). */
+export const stockVariantStatusModel = t.Object({
+  id: t.String(),
+  sku: t.String(),
+  name: t.String(), // "<nama produk> - <nama warna>"
+  inStock: t.Number(),
+});
+
 /** Hasil satu order sales (POST /api/order-sales). */
 export const orderSalesModel = t.Object({
   id: t.String(),
