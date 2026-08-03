@@ -32,6 +32,10 @@ export const salesOrders = pgTable(
     shippingZipCode: varchar("shipping_zip_code", { length: 20 }),
     shippingAmount: bigint("shipping_amount", { mode: "number" }),
     discountId: uuid("discount_id").references(() => discounts.id),
+    // Nominal potongan yang dibekukan saat transaksi terjadi. Dipakai
+    // GET /discounts/stats untuk menghitung revenue impact tanpa perlu
+    // menghitung ulang aturan diskon yang mungkin sudah berubah.
+    discountAmount: bigint("discount_amount", { mode: "number" }),
     paymentMethod: varchar("payment_method", { length: 20 }).notNull(),
     cashierName: varchar("cashier_name", { length: 255 }),
     total: bigint("total", { mode: "number" }).notNull(),

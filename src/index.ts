@@ -8,6 +8,7 @@ import { CategoryRoute } from "./routes/category.route";
 import { CollectionRoute } from "./routes/collection.route";
 import { ColorRoute } from "./routes/color.route";
 import { CustomerRoute } from "./routes/customer.route";
+import { DiscountRoute } from "./routes/discount.route";
 import { FinishRoute } from "./routes/finish.route";
 import { MediaRoute } from "./routes/media.route";
 import { ProductRoute } from "./routes/product.route";
@@ -74,7 +75,8 @@ const app = new Elysia({ prefix: "/api" })
   .use(CareInstructionRoute)
   .use(CustomerRoute)
   .use(SupplierRoute)
-  .use(PurchaseOrderRoute);
+  .use(PurchaseOrderRoute)
+  .use(DiscountRoute);
 
 app.listen(port, () => {
   logger.info(`🦊 Server running at http://localhost:${port}`);

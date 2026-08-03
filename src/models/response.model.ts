@@ -360,3 +360,54 @@ export const purchaseOrderStatsModel = t.Object({
   onOrderValue: t.Number(),
   totalSuppliers: t.Number(),
 });
+
+/** Satu kode diskon utuh (POST, PATCH, GET /discounts/:id). */
+export const discountModel = t.Object({
+  id: t.String(),
+  code: t.String(),
+  discountType: t.String(),
+  discountValue: t.Number(),
+  // Sasaran polymorphic. appliesToId null untuk tipe scope.
+  appliesToType: t.String(),
+  appliesToId: nullableString,
+  // Hasil lookup ke tabel tujuan. null jika tipe scope, ATAU jika target
+  // sudah di-soft-delete setelah diskon dibuat (target menggantung).
+  targetName: nullableString,
+  startDate: t.Date(),
+  endDate: t.Date(),
+  usageLimit: nullableNumber, // null = unlimited
+  used: t.Number(),
+  status: t.String(), // inactive | scheduled | expired | active
+  ...auditColumns,
+});
+
+/** Item pada list kode diskon (GET /discounts). */
+export const discountListItemModel = t.Object({
+  id: t.String(),
+  code: t.String(),
+  discountType: t.String(),
+  discountValue: t.Number(),
+  appliesToType: t.String(),
+  appliesToId: nullableString, // targetName sengaja tidak ada, lihat bagian 6.3
+  startDate: t.Date(),
+  endDate: t.Date(),
+  used: t.Number(),
+  usageLimit: nullableNumber,
+  status: t.String(),
+});
+
+/** Agregat untuk dashboard (GET /discounts/stats). */
+export const discountStatsModel = t.Object({
+  totalActiveDiscounts: t.Number(),
+  totalRedemptions: t.Number(),
+  totalRevenueImpact: t.Number(),
+  totalExpiringSoon: t.Number(),
+  // Sebaran status turunan (bagian 3.1) di antara baris aktif.
+  statusCounts: t.Object({
+    all: t.Number(),
+    active: t.Number(),
+    scheduled: t.Number(),
+    expired: t.Number(),
+    inactive: t.Number(),
+  }),
+});
