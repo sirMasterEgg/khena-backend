@@ -411,3 +411,37 @@ export const discountStatsModel = t.Object({
     inactive: t.Number(),
   }),
 });
+
+/** Satu varian untuk layar kasir (GET /api/point-of-sales/product-variants). */
+export const posProductVariantModel = t.Object({
+  detailProductId: t.String(),
+  variantName: t.String(),
+  sku: t.String(),
+  price: t.Number(),
+  stock: t.Number(),
+  imageUrl: nullableString,
+});
+
+/** Hasil satu transaksi kasir (POST /api/point-of-sales). */
+export const posTransactionModel = t.Object({
+  id: t.String(),
+  invoiceNumber: t.String(),
+  orderDate: t.String(),
+  customerId: nullableString,
+  paymentMethod: t.String(),
+  cashierName: nullableString,
+  status: t.String(),
+  createdVia: t.String(),
+  totalAmount: t.Number(),
+  total: t.Number(),
+  items: t.Array(
+    t.Object({
+      detailProductId: t.String(),
+      sku: t.String(),
+      productName: t.String(),
+      quantity: t.Number(),
+      unitPrice: t.Number(),
+      subtotal: t.Number(),
+    }),
+  ),
+});
