@@ -445,3 +445,47 @@ export const posTransactionModel = t.Object({
     }),
   ),
 });
+
+/** Satu varian untuk layar input order sales (GET /api/order-sales/product-variants). */
+export const orderSalesProductVariantModel = t.Object({
+  detailProductId: t.String(),
+  variantName: t.String(),
+  sku: t.String(),
+  price: t.Number(),
+  stock: t.Number(),
+  imageUrl: nullableString,
+});
+
+/** Hasil hitung ongkir (GET /api/order-sales/shipping-cost). */
+export const shippingCostModel = t.Object({
+  shippingCost: t.Number(),
+});
+
+/** Hasil satu order sales (POST /api/order-sales). */
+export const orderSalesModel = t.Object({
+  id: t.String(),
+  invoiceNumber: t.String(),
+  orderDate: t.String(),
+  customerId: t.String(),
+  paymentMethod: t.String(),
+  status: t.String(),
+  createdVia: t.String(),
+  shippingAddress: nullableString,
+  shippingCity: nullableString,
+  shippingProvince: nullableString,
+  shippingZipCode: nullableString,
+  shippingAmount: t.Number(),
+  note: nullableString,
+  totalAmount: t.Number(),
+  total: t.Number(),
+  items: t.Array(
+    t.Object({
+      detailProductId: t.String(),
+      sku: t.String(),
+      productName: t.String(),
+      quantity: t.Number(),
+      unitPrice: t.Number(),
+      subtotal: t.Number(),
+    }),
+  ),
+});
