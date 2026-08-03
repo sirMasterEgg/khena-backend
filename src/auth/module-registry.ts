@@ -16,6 +16,7 @@ export const MODULE_REGISTRY = {
   purchaseOrder: ["create", "read", "update", "delete"],
   discount: ["create", "read", "update", "delete"],
   pointOfSale: ["create", "read"],
+  orderSales: ["create", "read"],
 } as const;
 
 export type ModuleName = keyof typeof MODULE_REGISTRY;
