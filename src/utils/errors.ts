@@ -5,7 +5,8 @@ export type ErrorCode =
   | "UNAUTHORIZED"
   | "FORBIDDEN"
   | "VALIDATION_ERROR"
-  | "INTERNAL_ERROR";
+  | "INTERNAL_ERROR"
+  | "SHIPPING_ERROR";
 
 export class AppError extends Error {
   constructor(
@@ -46,6 +47,13 @@ export class UnauthorizedError extends AppError {
 export class ForbiddenError extends AppError {
   constructor(message = "forbidden") {
     super("FORBIDDEN", 403, message);
+  }
+}
+
+/** Gagal memanggil provider ongkir (Biteship): timeout, non-2xx, atau tarif kosong. */
+export class ShippingProviderError extends AppError {
+  constructor(message = "failed to calculate shipping cost") {
+    super("SHIPPING_ERROR", 502, message);
   }
 }
 

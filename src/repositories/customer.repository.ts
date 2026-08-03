@@ -4,6 +4,7 @@ import {
   desc,
   eq,
   ilike,
+  isNotNull,
   isNull,
   ne,
   or,
@@ -61,6 +62,9 @@ const recentCompletedOrders = db
     and(
       eq(salesOrders.status, "completed"),
       isNull(salesOrders.deletedAt),
+      // Order walk-in (POS tanpa customer) tidak boleh ikut dihitung ke
+      // segment/LTV customer mana pun.
+      isNotNull(salesOrders.customerId),
       sql`${salesOrders.orderDate} >= (CURRENT_DATE - INTERVAL '12 months')`,
     ),
   )

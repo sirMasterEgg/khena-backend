@@ -12,7 +12,7 @@ import {
 import { auditColumns } from "./audit-columns";
 import { customers } from "./customer.model";
 import { discounts } from "./discount.model";
-import { products } from "./product.model";
+import { detailProducts } from "./product.model";
 
 export const salesOrders = pgTable(
   "sales_orders",
@@ -20,9 +20,7 @@ export const salesOrders = pgTable(
     id: uuid("id")
       .primaryKey()
       .$defaultFn(() => Bun.randomUUIDv7()),
-    customerId: uuid("customer_id")
-      .notNull()
-      .references(() => customers.id),
+    customerId: uuid("customer_id").references(() => customers.id),
     invoiceNumber: varchar("invoice_number", { length: 50 }).notNull(),
     orderDate: date("order_date").notNull(),
     totalAmount: bigint("total_amount", { mode: "number" }).notNull(),
@@ -41,6 +39,12 @@ export const salesOrders = pgTable(
     total: bigint("total", { mode: "number" }).notNull(),
     note: text("note"),
     status: varchar("status", { length: 15 }).notNull(),
+    // Asal transaksi: "pos" (kasir), "order_sales" (input manual sales),
+    // "online" (storefront). Default "order_sales" supaya baris lama tetap valid
+    // saat kolom ini ditambahkan.
+    createdVia: varchar("created_via", { length: 15 })
+      .notNull()
+      .default("order_sales"),
     ...auditColumns,
   },
   (table) => [
@@ -59,9 +63,9 @@ export const salesOrderItems = pgTable("sales_order_items", {
   salesOrderId: uuid("sales_order_id")
     .notNull()
     .references(() => salesOrders.id),
-  productId: uuid("product_id")
+  detailProductId: uuid("detail_product_id")
     .notNull()
-    .references(() => products.id),
+    .references(() => detailProducts.id),
   quantity: integer("quantity").notNull(),
   unitPrice: bigint("unit_price", { mode: "number" }).notNull(),
   ...auditColumns,

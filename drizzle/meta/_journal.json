@@ -99,6 +99,13 @@
       "when": 1785727114497,
       "tag": "0013_alter_discounts_table_with_polymorphic_relationship",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1785735461142,
+      "tag": "0014_alter_purchase_order_item_to_detail_product",
+      "breakpoints": true
     }
   ]
 }
