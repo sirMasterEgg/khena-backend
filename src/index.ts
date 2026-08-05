@@ -1,4 +1,5 @@
 import { cors } from "@elysia/cors";
+import { openapi } from "@elysia/openapi";
 import { Elysia } from "elysia";
 import { syncPermissions } from "./auth/permission-sync";
 import { loggerPlugin } from "./plugins/logger.plugin";
@@ -13,6 +14,7 @@ import { DiscountRoute } from "./routes/discount.route";
 import { FinishRoute } from "./routes/finish.route";
 import { MediaRoute } from "./routes/media.route";
 import { OrderSalesRoute } from "./routes/order-sales.route";
+import { PermissionRoute } from "./routes/permission.route";
 import { PointOfSaleRoute } from "./routes/point-of-sale.route";
 import { ProductRoute } from "./routes/product.route";
 import { PurchaseOrderRoute } from "./routes/purchase-order.route";
@@ -29,6 +31,7 @@ await syncPermissions();
 
 const app = new Elysia({ prefix: "/api" })
   .use(cors())
+  .use(openapi())
   .use(loggerPlugin)
   .onError(({ code, error, set }) => {
     // Error bisnis yang dilempar service/repository sebagai AppError.
@@ -69,6 +72,7 @@ const app = new Elysia({ prefix: "/api" })
   })
   .get("/health", () => ({ status: "ok" }))
   .use(AuthRoute)
+  .use(PermissionRoute)
   .use(ProductRoute)
   .use(MediaRoute)
   .use(RoomTypeRoute)
