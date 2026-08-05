@@ -16,7 +16,7 @@ export const MODULE_REGISTRY = {
   purchaseOrder: ["create", "read", "update", "delete"],
   discount: ["create", "read", "update", "delete"],
   pointOfSale: ["create", "read"],
-  orderSales: ["create", "read"],
+  orderSales: ["create", "read", "update"],
   stock: ["create", "read"],
 } as const;
 
