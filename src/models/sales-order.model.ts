@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   bigint,
+  boolean,
   date,
   integer,
   pgTable,
@@ -45,6 +46,14 @@ export const salesOrders = pgTable(
     createdVia: varchar("created_via", { length: 15 })
       .notNull()
       .default("order_sales"),
+    // Jadwal pengiriman yang dijanjikan ke customer. Semuanya opsional —
+    // order lama (dan order yang belum dijadwalkan) bernilai null.
+    deliveryDate: date("delivery_date"),
+    /** "morning" | "afternoon" | "evening". Divalidasi di controller, bukan di DB. */
+    deliveryTimeSlot: varchar("delivery_time_slot", { length: 20 }),
+    deliveryNotes: text("delivery_notes"),
+    /** Nomor resi kurir. Wajib diisi saat status berpindah ke "shipped". */
+    trackingNumber: varchar("tracking_number", { length: 100 }),
     ...auditColumns,
   },
   (table) => [
@@ -68,6 +77,16 @@ export const salesOrderItems = pgTable("sales_order_items", {
     .references(() => detailProducts.id),
   quantity: integer("quantity").notNull(),
   unitPrice: bigint("unit_price", { mode: "number" }).notNull(),
+  /**
+   * Penanda item sudah disiapkan/dipacking oleh gudang.
+   * NULLABLE dan TANPA default — tiga nilai punya arti berbeda:
+   *   null  = tidak relevan (item transaksi POS; kasir tidak melakukan packing)
+   *   false = order sales, belum dipacking
+   *   true  = order sales, sudah dipacking
+   * Karena tidak ada default, item POS otomatis bernilai null tanpa perlu
+   * diisi eksplisit; Order Sales yang wajib mengisi `false` saat create.
+   */
+  isPacked: boolean("is_packed"),
   ...auditColumns,
 });
 
