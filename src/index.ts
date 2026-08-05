@@ -3,6 +3,7 @@ import { openapi } from "@elysia/openapi";
 import { Elysia } from "elysia";
 import { syncPermissions } from "./auth/permission-sync";
 import { loggerPlugin } from "./plugins/logger.plugin";
+import { AdministratorRoute } from "./routes/administrator.route";
 import { AuthRoute } from "./routes/auth.route";
 import { CareInstructionRoute } from "./routes/care-instruction.route";
 import { CategoryRoute } from "./routes/category.route";
@@ -73,6 +74,7 @@ const app = new Elysia({ prefix: "/api" })
   })
   .get("/health", () => ({ status: "ok" }))
   .use(AuthRoute)
+  .use(AdministratorRoute)
   .use(RoleRoute)
   .use(PermissionRoute)
   .use(ProductRoute)
