@@ -18,6 +18,7 @@ import { PermissionRoute } from "./routes/permission.route";
 import { PointOfSaleRoute } from "./routes/point-of-sale.route";
 import { ProductRoute } from "./routes/product.route";
 import { PurchaseOrderRoute } from "./routes/purchase-order.route";
+import { RoleRoute } from "./routes/role.route";
 import { RoomTypeRoute } from "./routes/room-type.route";
 import { StockRoute } from "./routes/stock.route";
 import { SupplierRoute } from "./routes/supplier.route";
@@ -72,6 +73,7 @@ const app = new Elysia({ prefix: "/api" })
   })
   .get("/health", () => ({ status: "ok" }))
   .use(AuthRoute)
+  .use(RoleRoute)
   .use(PermissionRoute)
   .use(ProductRoute)
   .use(MediaRoute)
