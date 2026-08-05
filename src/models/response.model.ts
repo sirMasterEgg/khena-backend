@@ -686,6 +686,66 @@ export const orderSalesInvoiceModel = t.Object({
   note: nullableString,
 });
 
+/** GET /api/deliveries/stats */
+export const deliveryStatsModel = t.Object({
+  thisWeek: t.Number(), // jumlah delivery minggu berjalan (Senin–Minggu)
+  overdue: t.Number(), // jumlah delivery yang lewat tanggal & belum dikirim
+});
+
+/** Customer ringkas pada baris delivery. Phone dipakai kurir untuk menghubungi. */
+const deliveryCustomerModel = t.Object({
+  id: nullableString,
+  name: nullableString,
+  phone: nullableString,
+});
+
+/** Detail pengiriman satu order. */
+const deliveryShippingDetailModel = t.Object({
+  address: nullableString,
+  city: nullableString,
+  province: nullableString,
+  zipCode: nullableString,
+  timeSlot: nullableString, // "morning" | "afternoon" | "evening" | null
+  notes: nullableString,
+  trackingNumber: nullableString,
+});
+
+/** Satu delivery di dalam sebuah hari. */
+const deliveryItemModel = t.Object({
+  id: t.String(), // sales_orders.id
+  invoiceNumber: t.String(),
+  status: t.String(),
+  customer: deliveryCustomerModel,
+  shippingDetail: deliveryShippingDetailModel,
+});
+
+/** Satu hari pada papan mingguan (GET /api/deliveries). Selalu 7 elemen. */
+export const deliveryDayModel = t.Object({
+  date: t.String(), // "YYYY-MM-DD"
+  dayName: t.String(), // "monday" … "sunday"
+  deliveries: t.Array(deliveryItemModel),
+});
+
+/** GET /api/deliveries — papan mingguan beserta rentang tanggal yang diminta. */
+export const deliveryWeekModel = t.Object({
+  date: t.Object({
+    start: t.String(), // "YYYY-MM-DD", sama dengan query "start"
+    end: t.String(), // "YYYY-MM-DD", sama dengan query "end"
+  }),
+  days: t.Array(deliveryDayModel),
+});
+
+/** Satu baris pada GET /api/deliveries/overdue. */
+export const deliveryOverdueItemModel = t.Object({
+  id: t.String(),
+  date: t.String(), // delivery_date yang terlewat
+  daysOverdue: t.Number(), // selisih hari terhadap hari ini, minimal 1
+  invoiceNumber: t.String(),
+  status: t.String(),
+  customer: deliveryCustomerModel,
+  city: nullableString, // sales_orders.shipping_city
+});
+
 /** Satu label pengiriman siap dirender frontend (GET /api/order-sales/shipping-label). */
 export const orderSalesShippingLabelModel = t.Object({
   invoiceNumber: t.String(),
