@@ -554,3 +554,163 @@ export const orderSalesModel = t.Object({
     }),
   ),
 });
+
+/** Agregat dashboard order (GET /api/order-sales/stats). */
+export const orderSalesStatsModel = t.Object({
+  totalRevenue: t.Number(),
+  totalOrders: t.Number(),
+  averageOrderValue: t.Number(),
+  awaitingFulfillment: t.Number(),
+  // Sebaran status. "awaitingFulfillment" = pending + processing (turunan).
+  total: t.Object({
+    allOrders: t.Number(),
+    awaitingFulfillment: t.Number(),
+    pending: t.Number(),
+    processing: t.Number(),
+    shipped: t.Number(),
+    completed: t.Number(),
+    cancelled: t.Number(),
+  }),
+});
+
+/** Satu baris pada list order (GET /api/order-sales). */
+export const orderSalesListItemModel = t.Object({
+  id: t.String(),
+  invoiceNumber: t.String(),
+  date: t.String(), // sales_orders.order_date, format YYYY-MM-DD
+  customer: nullableString, // nama customer
+  items: t.Object({
+    total: t.Number(), // jumlah JENIS barang = banyaknya baris item, bukan SUM(quantity)
+    productVariants: t.Array(
+      t.Object({
+        name: t.String(), // "<nama produk> - <nama warna>"
+        imageUrl: nullableString,
+        price: t.Number(), // unit_price snapshot saat order dibuat
+      }),
+    ),
+  }),
+  total: t.Number(),
+  status: t.String(),
+});
+
+/** Detail satu order (GET /api/order-sales/:id). */
+export const orderSalesDetailModel = t.Object({
+  id: t.String(),
+  invoiceNumber: t.String(),
+  date: t.String(),
+  customer: t.Object({
+    id: t.String(),
+    name: t.String(),
+    email: t.String(),
+    phone: t.String(),
+    totalSpend: t.Number(), // customers.lifetime_value
+  }),
+  shipping: t.Object({
+    address: nullableString,
+    city: nullableString,
+    zipCode: nullableString,
+    province: nullableString,
+    trackingNumber: nullableString,
+  }),
+  items: t.Array(
+    t.Object({
+      id: t.String(), // sales_order_items.id (BUKAN detail_product_id)
+      detailProductId: t.String(),
+      name: t.String(),
+      sku: t.String(),
+      imageUrl: nullableString,
+      quantity: t.Number(),
+      price: t.Number(),
+      // null = belum pernah ditandai (baris sebelum migrasi). Frontend
+      // memperlakukan null sama dengan false.
+      isPacked: t.Union([t.Boolean(), t.Null()]),
+    }),
+  ),
+  subtotal: t.Number(), // sales_orders.total_amount
+  shippingCost: t.Number(), // sales_orders.shipping_amount ?? 0
+  discount: t.Number(), // sales_orders.discount_amount ?? 0
+  total: t.Number(),
+  status: t.String(),
+  internalNote: nullableString, // sales_orders.note
+  // null bila jadwal pengiriman belum diisi sama sekali.
+  delivery: t.Union([
+    t.Object({
+      deliveryDate: nullableString,
+      timeSlot: nullableString,
+      deliveryNotes: nullableString,
+    }),
+    t.Null(),
+  ]),
+});
+
+/** Hasil PATCH /api/order-sales/:id/mark-as-packed. */
+export const orderSalesPackedItemModel = t.Object({
+  id: t.String(),
+  isPacked: t.Boolean(),
+});
+
+/** Satu invoice siap dirender frontend (GET /api/order-sales/invoice). */
+export const orderSalesInvoiceModel = t.Object({
+  invoiceNumber: t.String(),
+  date: t.String(),
+  status: t.String(),
+  paymentMethod: t.String(),
+  company: t.Object({
+    name: t.String(),
+    address: t.String(),
+    phone: t.String(),
+    email: t.String(),
+  }),
+  customer: t.Object({
+    name: t.String(),
+    email: t.String(),
+    phone: t.String(),
+    address: nullableString,
+    city: nullableString,
+    province: nullableString,
+    zipCode: nullableString,
+  }),
+  items: t.Array(
+    t.Object({
+      name: t.String(),
+      sku: t.String(),
+      quantity: t.Number(),
+      unitPrice: t.Number(),
+      subtotal: t.Number(),
+    }),
+  ),
+  subtotal: t.Number(),
+  shippingCost: t.Number(),
+  discount: t.Number(),
+  total: t.Number(),
+  note: nullableString,
+});
+
+/** Satu label pengiriman siap dirender frontend (GET /api/order-sales/shipping-label). */
+export const orderSalesShippingLabelModel = t.Object({
+  invoiceNumber: t.String(),
+  date: t.String(),
+  trackingNumber: nullableString,
+  sender: t.Object({
+    name: t.String(),
+    address: t.String(),
+    phone: t.String(),
+    zipCode: t.String(),
+  }),
+  recipient: t.Object({
+    name: t.String(),
+    phone: t.String(),
+    address: nullableString,
+    city: nullableString,
+    province: nullableString,
+    zipCode: nullableString,
+  }),
+  // Perhatikan: di label pengiriman ini SUM(quantity) — jumlah unit fisik yang
+  // dimasukkan ke paket. Beda arti dengan `items.total` di list order yang
+  // menghitung jenis barang.
+  totalItems: t.Number(),
+  totalWeightGram: t.Number(),
+  deliveryDate: nullableString,
+  timeSlot: nullableString,
+  deliveryNotes: nullableString,
+});
