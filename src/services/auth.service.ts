@@ -119,6 +119,10 @@ export class AuthService {
     const admin = await this.repo.findAdministratorWithRoleById(payload.sub);
     if (!admin) throw new UnauthorizedError();
 
-    return admin; // { id, name, email, role }
+    const permissions = admin.roleId
+      ? await this.repo.findPermissionCodesByRoleId(admin.roleId)
+      : [];
+
+    return { ...admin, permissions }; // { id, name, email, roleId, role, permissions }
   }
 }
