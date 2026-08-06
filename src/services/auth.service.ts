@@ -74,7 +74,11 @@ export class AuthService {
       },
       "login succeeded",
     );
-    return { ...issued, admin };
+
+    const permissions = admin.roleId
+      ? await this.repo.findPermissionCodesByRoleId(admin.roleId)
+      : [];
+    return { ...issued, admin: { ...admin, permissions } };
   }
 
   async refresh(refreshTokenRaw: string) {

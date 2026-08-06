@@ -64,6 +64,7 @@ export class AuthRepository {
         name: administrators.name,
         email: administrators.email,
         password: administrators.password,
+        roleId: administrators.roleId,
         role: roles.name,
       })
       .from(administrators)
