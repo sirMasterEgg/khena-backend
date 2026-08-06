@@ -114,6 +114,7 @@ export const AuthController = (service: AuthService) =>
             name: admin.name,
             email: admin.email,
             role: admin.role,
+            permissions: admin.permissions,
           },
         };
       },
@@ -125,6 +126,7 @@ export const AuthController = (service: AuthService) =>
               name: t.String(),
               email: t.String(),
               role: t.Union([t.String(), t.Null()]),
+              permissions: t.Array(t.String()),
             }),
           ),
           ...errorResponses,
@@ -168,6 +170,7 @@ export const AuthController = (service: AuthService) =>
               name: result.admin.name,
               email: result.admin.email,
               role: result.admin.role,
+              permissions: result.admin.permissions,
             },
           },
         };
@@ -184,6 +187,7 @@ export const AuthController = (service: AuthService) =>
                 name: t.String(),
                 email: t.String(),
                 role: t.Union([t.String(), t.Null()]),
+                permissions: t.Array(t.String()),
               }),
             }),
           ),

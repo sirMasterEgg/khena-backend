@@ -686,6 +686,71 @@ export const orderSalesInvoiceModel = t.Object({
   note: nullableString,
 });
 
+/** Ringkasan role yang ditempel di response administrator. */
+const administratorRoleModel = t.Union([
+  t.Object({ id: t.String(), name: t.String() }),
+  t.Null(),
+]);
+
+/** Satu administrator utuh (POST, PATCH). TANPA password. */
+export const administratorModel = t.Object({
+  id: t.String(),
+  name: t.String(),
+  email: t.String(),
+  roleId: nullableString,
+  ...auditColumns,
+});
+
+/** Item pada list administrator (GET /administrators). */
+export const administratorListItemModel = t.Object({
+  id: t.String(),
+  name: t.String(),
+  email: t.String(),
+  role: administratorRoleModel,
+});
+
+/** Detail satu administrator (GET /administrators/:id). */
+export const administratorDetailModel = t.Object({
+  id: t.String(),
+  name: t.String(),
+  email: t.String(),
+  role: administratorRoleModel,
+});
+
+/** Satu role utuh beserta permission code-nya (POST, PATCH). */
+export const roleModel = t.Object({
+  id: t.String(),
+  name: t.String(),
+  description: nullableString,
+  permissions: t.Array(t.String()),
+  ...auditColumns,
+});
+
+/** Item pada list role (GET /roles). */
+export const roleListItemModel = t.Object({
+  id: t.String(),
+  name: t.String(),
+  description: nullableString,
+  permissions: t.Array(t.String()),
+});
+
+/** Detail satu role (GET /roles/:id). */
+export const roleDetailModel = t.Object({
+  id: t.String(),
+  name: t.String(),
+  description: nullableString,
+  permissions: t.Array(t.String()),
+});
+
+/** Satu permission (GET /permissions). */
+export const permissionModel = t.Object({
+  id: t.String(),
+  code: t.String(),
+  module: nullableString,
+  action: nullableString,
+  description: nullableString,
+});
+
 /** GET /api/deliveries/stats */
 export const deliveryStatsModel = t.Object({
   thisWeek: t.Number(), // jumlah delivery minggu berjalan (Senin–Minggu)

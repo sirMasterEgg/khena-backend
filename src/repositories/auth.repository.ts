@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import {
   type Administrator,
   administrators,
@@ -21,7 +21,9 @@ export class AuthRepository {
     const result = await db
       .select()
       .from(administrators)
-      .where(eq(administrators.email, email))
+      .where(
+        and(eq(administrators.email, email), isNull(administrators.deletedAt)),
+      )
       .limit(1);
     return result[0];
   }
@@ -30,7 +32,7 @@ export class AuthRepository {
     const result = await db
       .select()
       .from(administrators)
-      .where(eq(administrators.id, id))
+      .where(and(eq(administrators.id, id), isNull(administrators.deletedAt)))
       .limit(1);
     return result[0];
   }
@@ -43,11 +45,12 @@ export class AuthRepository {
         id: administrators.id,
         name: administrators.name,
         email: administrators.email,
+        roleId: administrators.roleId,
         role: roles.name,
       })
       .from(administrators)
       .leftJoin(roles, eq(administrators.roleId, roles.id))
-      .where(eq(administrators.id, id))
+      .where(and(eq(administrators.id, id), isNull(administrators.deletedAt)))
       .limit(1);
     return result[0];
   }
@@ -61,11 +64,14 @@ export class AuthRepository {
         name: administrators.name,
         email: administrators.email,
         password: administrators.password,
+        roleId: administrators.roleId,
         role: roles.name,
       })
       .from(administrators)
       .leftJoin(roles, eq(administrators.roleId, roles.id))
-      .where(eq(administrators.email, email))
+      .where(
+        and(eq(administrators.email, email), isNull(administrators.deletedAt)),
+      )
       .limit(1);
     return result[0];
   }
