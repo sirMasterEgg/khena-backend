@@ -839,3 +839,59 @@ export const orderSalesShippingLabelModel = t.Object({
   timeSlot: nullableString,
   deliveryNotes: nullableString,
 });
+
+/**
+ * Satu order marketplace beserta seluruh itemnya (nested). Dipakai baik untuk
+ * hasil pencatatan satu order (POST /api/marketplace/log) maupun tiap baris
+ * pada list order (GET /api/marketplace/orders) — bentuknya sama persis.
+ */
+export const marketplaceOrderModel = t.Object({
+  id: t.String(), // sales_orders.id
+  orderId: t.String(),
+  marketplace: nullableString,
+  date: t.String(), // kolom `date` Postgres → string "YYYY-MM-DD"
+  buyerName: nullableString,
+  totalRevenue: t.Number(), // = sales_orders.total_amount
+  items: t.Array(
+    t.Object({
+      id: t.String(), // sales_order_items.id
+      variantSku: t.String(),
+      productName: t.String(),
+      quantity: t.Number(),
+      revenue: t.Number(), // = unitPrice * quantity
+    }),
+  ),
+});
+
+/** Ringkasan hasil upload CSV (POST /api/marketplace/import). */
+export const marketplaceImportResultModel = t.Object({
+  total: t.Number(),
+  successCount: t.Number(),
+  failedCount: t.Number(),
+  results: t.Array(
+    t.Object({
+      row: t.Number(), // nomor baris data, mulai dari 1 (header tidak dihitung)
+      orderId: t.String(),
+      variantSku: t.String(),
+      status: t.Union([t.Literal("success"), t.Literal("failed")]),
+      error: t.Optional(t.String()),
+    }),
+  ),
+});
+
+/** Agregat dashboard marketplace (GET /api/marketplace/stats). */
+export const marketplaceStatsModel = t.Object({
+  totalRevenue: t.Number(),
+  totalOrders: t.Number(),
+  // Banyaknya SKU unik yang pernah terjual lewat marketplace, dihitung
+  // sekali secara global (SKU yang sama di beberapa channel tidak dobel).
+  uniqueSkus: t.Number(),
+  channels: t.Array(
+    t.Object({
+      marketplace: nullableString,
+      revenue: t.Number(),
+      orders: t.Number(),
+      skus: t.Number(), // SKU unik di channel ini saja
+    }),
+  ),
+});
