@@ -17,12 +17,18 @@ export interface MarketplaceVariantRow {
   productName: string;
 }
 
-export interface MarketplaceItemRow {
+export interface MarketplaceOrderRow {
   id: string;
   orderId: string;
   marketplace: string | null;
   date: string;
   buyerName: string | null;
+  totalRevenue: number;
+}
+
+export interface MarketplaceOrderItemDetailRow {
+  id: string;
+  salesOrderId: string;
   variantSku: string;
   productName: string;
   quantity: number;
@@ -41,7 +47,7 @@ export interface MarketplaceStatsChannelRow {
   skus: number;
 }
 
-interface ListOrderItemsFilter {
+interface ListOrdersFilter {
   marketplace?: string;
   page: number;
   limit: number;
@@ -118,14 +124,18 @@ export class MarketplaceRepository {
       );
   }
 
-  /** List item marketplace berpaginasi + total count. */
-  async listOrderItems(
-    filter: ListOrderItemsFilter,
-  ): Promise<{ rows: MarketplaceItemRow[]; total: number }> {
+  /**
+   * List header order marketplace berpaginasi + total count. Paginasi
+   * dihitung per ORDER (bukan per item) — items-nya diambil terpisah lewat
+   * {@link findItemsByOrderIds} supaya satu order dengan banyak item tidak
+   * "terpotong" antar halaman.
+   */
+  async listOrders(
+    filter: ListOrdersFilter,
+  ): Promise<{ rows: MarketplaceOrderRow[]; total: number }> {
     const conditions = [
       eq(salesOrders.createdVia, "marketplace"),
       isNull(salesOrders.deletedAt),
-      isNull(salesOrderItems.deletedAt),
     ];
     if (filter.marketplace) {
       // Tanpa tanda `%` → cocok persis tapi tidak peduli huruf besar/kecil,
@@ -137,50 +147,60 @@ export class MarketplaceRepository {
     const [rows, countResult] = await Promise.all([
       db
         .select({
-          id: salesOrderItems.id,
+          id: salesOrders.id,
           orderId: salesOrders.invoiceNumber,
           marketplace: salesOrders.marketplaceName,
           date: salesOrders.orderDate,
           buyerName: salesOrders.buyerName,
-          variantSku: detailProducts.detailProductSku,
-          productName: products.name,
-          quantity: salesOrderItems.quantity,
-          unitPrice: salesOrderItems.unitPrice,
+          totalRevenue: salesOrders.totalAmount,
         })
-        .from(salesOrderItems)
-        .innerJoin(
-          salesOrders,
-          eq(salesOrderItems.salesOrderId, salesOrders.id),
-        )
-        .innerJoin(
-          detailProducts,
-          eq(salesOrderItems.detailProductId, detailProducts.id),
-        )
-        .innerJoin(products, eq(detailProducts.productId, products.id))
+        .from(salesOrders)
         .where(where)
-        .orderBy(
-          desc(salesOrders.orderDate),
-          asc(salesOrders.invoiceNumber),
-          asc(salesOrderItems.id),
-        )
+        .orderBy(desc(salesOrders.orderDate), asc(salesOrders.invoiceNumber))
         .limit(filter.limit)
         .offset((filter.page - 1) * filter.limit),
       db
         .select({ count: sql<number>`count(*)` })
-        .from(salesOrderItems)
-        .innerJoin(
-          salesOrders,
-          eq(salesOrderItems.salesOrderId, salesOrders.id),
-        )
-        .innerJoin(
-          detailProducts,
-          eq(salesOrderItems.detailProductId, detailProducts.id),
-        )
-        .innerJoin(products, eq(detailProducts.productId, products.id))
+        .from(salesOrders)
         .where(where),
     ]);
 
     return { rows, total: Number(countResult[0]?.count ?? 0) };
+  }
+
+  /**
+   * Item aktif milik sekumpulan order sekaligus (bukan N+1), dipakai untuk
+   * menyusun `items[]` di {@link listOrders}. Terurut `id` ascending supaya
+   * item dalam satu order urutannya stabil. Guard array kosong.
+   */
+  async findItemsByOrderIds(
+    orderIds: string[],
+  ): Promise<MarketplaceOrderItemDetailRow[]> {
+    if (orderIds.length === 0) {
+      return [];
+    }
+    return await db
+      .select({
+        id: salesOrderItems.id,
+        salesOrderId: salesOrderItems.salesOrderId,
+        variantSku: detailProducts.detailProductSku,
+        productName: products.name,
+        quantity: salesOrderItems.quantity,
+        unitPrice: salesOrderItems.unitPrice,
+      })
+      .from(salesOrderItems)
+      .innerJoin(
+        detailProducts,
+        eq(salesOrderItems.detailProductId, detailProducts.id),
+      )
+      .innerJoin(products, eq(detailProducts.productId, products.id))
+      .where(
+        and(
+          inArray(salesOrderItems.salesOrderId, orderIds),
+          isNull(salesOrderItems.deletedAt),
+        ),
+      )
+      .orderBy(asc(salesOrderItems.id));
   }
 
   /** Ambil satu order marketplace aktif by id. `undefined` bila tidak ada / bukan marketplace. */

@@ -8,8 +8,7 @@ import {
 } from "../models/api-schema";
 import {
   marketplaceImportResultModel,
-  marketplaceLogResultModel,
-  marketplaceOrderItemModel,
+  marketplaceOrderModel,
   marketplaceStatsModel,
 } from "../models/response.model";
 import type { MarketplaceService } from "../services/marketplace.service";
@@ -96,7 +95,7 @@ export const MarketplaceController = (service: MarketplaceService) =>
         query: ordersQuery,
         requirePermission: "marketplace.read",
         response: {
-          200: listEnvelope(marketplaceOrderItemModel),
+          200: listEnvelope(marketplaceOrderModel),
           ...errorResponses,
         },
       },
@@ -126,7 +125,7 @@ export const MarketplaceController = (service: MarketplaceService) =>
         requirePermission: "marketplace.create",
         csrf: true,
         response: {
-          201: dataEnvelope(marketplaceLogResultModel),
+          201: dataEnvelope(marketplaceOrderModel),
           ...errorResponses,
         },
       },

@@ -840,25 +840,16 @@ export const orderSalesShippingLabelModel = t.Object({
   deliveryNotes: nullableString,
 });
 
-/** Satu baris item penjualan marketplace (GET /api/marketplace/orders). */
-export const marketplaceOrderItemModel = t.Object({
-  id: t.String(), // sales_order_items.id
-  orderId: t.String(),
-  marketplace: nullableString,
-  date: t.String(), // kolom `date` Postgres → string "YYYY-MM-DD"
-  buyerName: nullableString,
-  variantSku: t.String(),
-  productName: t.String(),
-  quantity: t.Number(),
-  revenue: t.Number(), // = unitPrice * quantity
-});
-
-/** Hasil pencatatan satu order marketplace (POST /api/marketplace/log). */
-export const marketplaceLogResultModel = t.Object({
+/**
+ * Satu order marketplace beserta seluruh itemnya (nested). Dipakai baik untuk
+ * hasil pencatatan satu order (POST /api/marketplace/log) maupun tiap baris
+ * pada list order (GET /api/marketplace/orders) — bentuknya sama persis.
+ */
+export const marketplaceOrderModel = t.Object({
   id: t.String(), // sales_orders.id
   orderId: t.String(),
   marketplace: nullableString,
-  date: t.String(),
+  date: t.String(), // kolom `date` Postgres → string "YYYY-MM-DD"
   buyerName: nullableString,
   totalRevenue: t.Number(), // = sales_orders.total_amount
   items: t.Array(
@@ -867,7 +858,7 @@ export const marketplaceLogResultModel = t.Object({
       variantSku: t.String(),
       productName: t.String(),
       quantity: t.Number(),
-      revenue: t.Number(),
+      revenue: t.Number(), // = unitPrice * quantity
     }),
   ),
 });

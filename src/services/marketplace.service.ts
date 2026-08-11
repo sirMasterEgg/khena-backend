@@ -216,8 +216,26 @@ export class MarketplaceService {
   }
 
   async listOrders(input: ListOrdersInput) {
-    const { rows, total } = await this.repo.listOrderItems(input);
+    const { rows, total } = await this.repo.listOrders(input);
     const totalPages = Math.ceil(total / input.limit);
+
+    if (rows.length === 0) {
+      return {
+        data: [],
+        meta: { page: input.page, limit: input.limit, total, totalPages },
+      };
+    }
+
+    const items = await this.repo.findItemsByOrderIds(rows.map((r) => r.id));
+    const itemsByOrderId = new Map<string, typeof items>();
+    for (const item of items) {
+      const list = itemsByOrderId.get(item.salesOrderId);
+      if (list) {
+        list.push(item);
+      } else {
+        itemsByOrderId.set(item.salesOrderId, [item]);
+      }
+    }
 
     return {
       data: rows.map((row) => ({
@@ -226,10 +244,14 @@ export class MarketplaceService {
         marketplace: row.marketplace,
         date: row.date,
         buyerName: row.buyerName,
-        variantSku: row.variantSku,
-        productName: row.productName,
-        quantity: row.quantity,
-        revenue: row.unitPrice * row.quantity,
+        totalRevenue: row.totalRevenue,
+        items: (itemsByOrderId.get(row.id) ?? []).map((item) => ({
+          id: item.id,
+          variantSku: item.variantSku,
+          productName: item.productName,
+          quantity: item.quantity,
+          revenue: item.unitPrice * item.quantity,
+        })),
       })),
       meta: { page: input.page, limit: input.limit, total, totalPages },
     };
