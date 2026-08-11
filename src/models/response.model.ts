@@ -887,3 +887,20 @@ export const marketplaceImportResultModel = t.Object({
     }),
   ),
 });
+
+/** Agregat dashboard marketplace (GET /api/marketplace/stats). */
+export const marketplaceStatsModel = t.Object({
+  totalRevenue: t.Number(),
+  totalOrders: t.Number(),
+  // Banyaknya SKU unik yang pernah terjual lewat marketplace, dihitung
+  // sekali secara global (SKU yang sama di beberapa channel tidak dobel).
+  uniqueSkus: t.Number(),
+  channels: t.Array(
+    t.Object({
+      marketplace: nullableString,
+      revenue: t.Number(),
+      orders: t.Number(),
+      skus: t.Number(), // SKU unik di channel ini saja
+    }),
+  ),
+});

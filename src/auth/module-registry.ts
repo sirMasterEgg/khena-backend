@@ -19,7 +19,7 @@ export const MODULE_REGISTRY = {
   orderSales: ["create", "read", "update"],
   delivery: ["read"],
   stock: ["create", "read"],
-  marketplace: ["create", "read"],
+  marketplace: ["create", "read", "delete"],
 } as const;
 
 export type ModuleName = keyof typeof MODULE_REGISTRY;

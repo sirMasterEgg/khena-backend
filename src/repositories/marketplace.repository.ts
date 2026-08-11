@@ -7,7 +7,7 @@ import {
   salesOrderItems,
   salesOrders,
 } from "../models/sales-order.model";
-import { stampCreate } from "../utils/audit";
+import { stampCreate, stampDelete } from "../utils/audit";
 import { db, type Tx } from "../utils/db";
 
 export interface MarketplaceVariantRow {
@@ -27,6 +27,18 @@ export interface MarketplaceItemRow {
   productName: string;
   quantity: number;
   unitPrice: number;
+}
+
+export interface MarketplaceOrderItemForDelete {
+  detailProductId: string;
+  quantity: number;
+}
+
+export interface MarketplaceStatsChannelRow {
+  marketplace: string | null;
+  revenue: number;
+  orders: number;
+  skus: number;
 }
 
 interface ListOrderItemsFilter {
@@ -169,5 +181,145 @@ export class MarketplaceRepository {
     ]);
 
     return { rows, total: Number(countResult[0]?.count ?? 0) };
+  }
+
+  /** Ambil satu order marketplace aktif by id. `undefined` bila tidak ada / bukan marketplace. */
+  async findOrderById(id: string): Promise<SalesOrder | undefined> {
+    const rows = await db
+      .select()
+      .from(salesOrders)
+      .where(
+        and(
+          eq(salesOrders.id, id),
+          eq(salesOrders.createdVia, "marketplace"),
+          isNull(salesOrders.deletedAt),
+        ),
+      )
+      .limit(1);
+    return rows[0];
+  }
+
+  /** Item aktif milik satu order, dipakai untuk membalik ledger stok saat delete. */
+  async findItemsForOrder(
+    id: string,
+  ): Promise<MarketplaceOrderItemForDelete[]> {
+    return await db
+      .select({
+        detailProductId: salesOrderItems.detailProductId,
+        quantity: salesOrderItems.quantity,
+      })
+      .from(salesOrderItems)
+      .where(
+        and(
+          eq(salesOrderItems.salesOrderId, id),
+          isNull(salesOrderItems.deletedAt),
+        ),
+      );
+  }
+
+  /**
+   * CapitalPrice varian saat ini, dipakai untuk baris ledger pembalik saat
+   * delete. TANPA filter aktif — varian yang produknya sudah di-soft-delete
+   * setelah order dibuat tetap harus bisa dibalik ledgernya. Guard array kosong.
+   */
+  async findCapitalPricesByIds(ids: string[]): Promise<Map<string, number>> {
+    if (ids.length === 0) {
+      return new Map();
+    }
+    const rows = await db
+      .select({
+        id: detailProducts.id,
+        capitalPrice: detailProducts.capitalPrice,
+      })
+      .from(detailProducts)
+      .where(inArray(detailProducts.id, ids));
+    return new Map(rows.map((r) => [r.id, r.capitalPrice]));
+  }
+
+  async softDeleteOrder(id: string, tx: Tx): Promise<void> {
+    await tx
+      .update(salesOrders)
+      .set(stampDelete())
+      .where(eq(salesOrders.id, id));
+  }
+
+  async softDeleteItemsByOrderId(id: string, tx: Tx): Promise<void> {
+    await tx
+      .update(salesOrderItems)
+      .set(stampDelete())
+      .where(eq(salesOrderItems.salesOrderId, id));
+  }
+
+  /**
+   * Agregat dashboard (GET /api/marketplace/stats). `totalRevenue`/`totalOrders`
+   * dihitung dari join item↔order supaya konsisten dengan `channels` (satu
+   * order selalu punya tepat satu `marketplaceName`, jadi SUM per channel =
+   * total keseluruhan). `uniqueSkus` dihitung terpisah karena SKU yang sama
+   * bisa muncul di lebih dari satu channel — menjumlahkan `channels[].skus`
+   * akan menghitung ganda.
+   */
+  async getStats(): Promise<{
+    totalRevenue: number;
+    totalOrders: number;
+    uniqueSkus: number;
+    channels: MarketplaceStatsChannelRow[];
+  }> {
+    const where = and(
+      eq(salesOrders.createdVia, "marketplace"),
+      isNull(salesOrders.deletedAt),
+      isNull(salesOrderItems.deletedAt),
+    );
+    const revenueExpr = sql<string>`sum(${salesOrderItems.quantity} * ${salesOrderItems.unitPrice})`;
+
+    const [totalsResult, uniqueSkusResult, channelRows] = await Promise.all([
+      db
+        .select({
+          totalRevenue: sql<string>`coalesce(${revenueExpr}, 0)`,
+          totalOrders: sql<string>`count(distinct ${salesOrders.id})`,
+        })
+        .from(salesOrderItems)
+        .innerJoin(
+          salesOrders,
+          eq(salesOrderItems.salesOrderId, salesOrders.id),
+        )
+        .where(where),
+      db
+        .select({
+          count: sql<string>`count(distinct ${salesOrderItems.detailProductId})`,
+        })
+        .from(salesOrderItems)
+        .innerJoin(
+          salesOrders,
+          eq(salesOrderItems.salesOrderId, salesOrders.id),
+        )
+        .where(where),
+      db
+        .select({
+          marketplace: salesOrders.marketplaceName,
+          revenue: sql<string>`coalesce(${revenueExpr}, 0)`,
+          orders: sql<string>`count(distinct ${salesOrders.id})`,
+          skus: sql<string>`count(distinct ${salesOrderItems.detailProductId})`,
+        })
+        .from(salesOrderItems)
+        .innerJoin(
+          salesOrders,
+          eq(salesOrderItems.salesOrderId, salesOrders.id),
+        )
+        .where(where)
+        .groupBy(salesOrders.marketplaceName)
+        .orderBy(desc(revenueExpr)),
+    ]);
+
+    return {
+      totalRevenue: Number(totalsResult[0]?.totalRevenue ?? 0),
+      totalOrders: Number(totalsResult[0]?.totalOrders ?? 0),
+      uniqueSkus: Number(uniqueSkusResult[0]?.count ?? 0),
+      channels: channelRows.map((r) => ({
+        marketplace: r.marketplace,
+        revenue: Number(r.revenue),
+        orders: Number(r.orders),
+        skus: Number(r.skus),
+      })),
+    };
   }
 }

@@ -526,4 +526,62 @@ export class MarketplaceService {
       },
     );
   }
+
+  async getStats() {
+    const stats = await this.repo.getStats();
+    return {
+      totalRevenue: stats.totalRevenue,
+      totalOrders: stats.totalOrders,
+      uniqueSkus: stats.uniqueSkus,
+      channels: stats.channels.map((c) => ({
+        marketplace: c.marketplace,
+        revenue: c.revenue,
+        orders: c.orders,
+        skus: c.skus,
+      })),
+    };
+  }
+
+  /**
+   * Hapus satu order marketplace beserta seluruh itemnya, dan BALIK ledger
+   * stok yang tadi dipotong (insert baris ledger baru dengan quantity
+   * POSITIF — baris lama tidak pernah diubah, konsisten dengan prinsip
+   * ledger append-only).
+   */
+  async deleteOrder(id: string): Promise<void> {
+    const order = await this.repo.findOrderById(id);
+    if (!order) {
+      throw new NotFoundError("marketplace order not found");
+    }
+
+    const items = await this.repo.findItemsForOrder(id);
+    const capitalPriceMap = await this.repo.findCapitalPricesByIds(
+      items.map((it) => it.detailProductId),
+    );
+
+    await db.transaction(async (tx) => {
+      await this.repo.softDeleteItemsByOrderId(id, tx);
+      await this.repo.softDeleteOrder(id, tx);
+
+      await this.stockRepo.insertEntries(
+        items.map((it) => ({
+          detailProductId: it.detailProductId,
+          quantity: it.quantity,
+          capitalPrice: capitalPriceMap.get(it.detailProductId) ?? 0,
+          reason: `marketplace order ${order.invoiceNumber} dihapus`,
+          isAdjustment: false,
+        })),
+        tx,
+      );
+    });
+
+    logger.info(
+      {
+        salesOrderId: id,
+        orderId: order.invoiceNumber,
+        itemCount: items.length,
+      },
+      "marketplace order deleted",
+    );
+  }
 }

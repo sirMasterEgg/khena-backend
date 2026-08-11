@@ -10,6 +10,7 @@ import {
   marketplaceImportResultModel,
   marketplaceLogResultModel,
   marketplaceOrderItemModel,
+  marketplaceStatsModel,
 } from "../models/response.model";
 import type { MarketplaceService } from "../services/marketplace.service";
 
@@ -40,6 +41,8 @@ const ordersQuery = t.Object({
   limit: t.Optional(t.Numeric({ minimum: 1 })),
 });
 
+const idParams = t.Object({ id: t.String({ minLength: 1 }) });
+
 export const MarketplaceController = (service: MarketplaceService) =>
   new Elysia({ prefix: "/marketplace" })
     .use(authPlugin)
@@ -65,6 +68,20 @@ export const MarketplaceController = (service: MarketplaceService) =>
       },
     )
     .get(
+      "/stats",
+      async () => {
+        const data = await service.getStats();
+        return { data };
+      },
+      {
+        requirePermission: "marketplace.read",
+        response: {
+          200: dataEnvelope(marketplaceStatsModel),
+          ...errorResponses,
+        },
+      },
+    )
+    .get(
       "/orders",
       async ({ query }) => {
         const page = query.page ?? 1;
@@ -82,6 +99,19 @@ export const MarketplaceController = (service: MarketplaceService) =>
           200: listEnvelope(marketplaceOrderItemModel),
           ...errorResponses,
         },
+      },
+    )
+    .delete(
+      "/orders/:id",
+      async ({ params }) => {
+        await service.deleteOrder(params.id);
+        return { data: "OK" };
+      },
+      {
+        params: idParams,
+        requirePermission: "marketplace.delete",
+        csrf: true,
+        response: { 200: dataEnvelope(t.Literal("OK")), ...errorResponses },
       },
     )
     .post(
