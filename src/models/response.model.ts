@@ -839,3 +839,51 @@ export const orderSalesShippingLabelModel = t.Object({
   timeSlot: nullableString,
   deliveryNotes: nullableString,
 });
+
+/** Satu baris item penjualan marketplace (GET /api/marketplace/orders). */
+export const marketplaceOrderItemModel = t.Object({
+  id: t.String(), // sales_order_items.id
+  orderId: t.String(),
+  marketplace: nullableString,
+  date: t.String(), // kolom `date` Postgres → string "YYYY-MM-DD"
+  buyerName: nullableString,
+  variantSku: t.String(),
+  productName: t.String(),
+  quantity: t.Number(),
+  revenue: t.Number(), // = unitPrice * quantity
+});
+
+/** Hasil pencatatan satu order marketplace (POST /api/marketplace/log). */
+export const marketplaceLogResultModel = t.Object({
+  id: t.String(), // sales_orders.id
+  orderId: t.String(),
+  marketplace: nullableString,
+  date: t.String(),
+  buyerName: nullableString,
+  totalRevenue: t.Number(), // = sales_orders.total_amount
+  items: t.Array(
+    t.Object({
+      id: t.String(), // sales_order_items.id
+      variantSku: t.String(),
+      productName: t.String(),
+      quantity: t.Number(),
+      revenue: t.Number(),
+    }),
+  ),
+});
+
+/** Ringkasan hasil upload CSV (POST /api/marketplace/import). */
+export const marketplaceImportResultModel = t.Object({
+  total: t.Number(),
+  successCount: t.Number(),
+  failedCount: t.Number(),
+  results: t.Array(
+    t.Object({
+      row: t.Number(), // nomor baris data, mulai dari 1 (header tidak dihitung)
+      orderId: t.String(),
+      variantSku: t.String(),
+      status: t.Union([t.Literal("success"), t.Literal("failed")]),
+      error: t.Optional(t.String()),
+    }),
+  ),
+});

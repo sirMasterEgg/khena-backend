@@ -46,6 +46,12 @@ export const salesOrders = pgTable(
     createdVia: varchar("created_via", { length: 15 })
       .notNull()
       .default("order_sales"),
+    // Nama marketplace asal transaksi, mis. "shopee" / "tokopedia".
+    // Hanya terisi untuk baris dengan createdVia = "marketplace".
+    marketplaceName: varchar("marketplace_name", { length: 50 }),
+    // Nama pembeli di marketplace. Bukan customer terdaftar, jadi disimpan
+    // sebagai teks lepas dan `customer_id` dibiarkan null.
+    buyerName: varchar("buyer_name", { length: 255 }),
     // Jadwal pengiriman yang dijanjikan ke customer. Semuanya opsional —
     // order lama (dan order yang belum dijadwalkan) bernilai null.
     deliveryDate: date("delivery_date"),

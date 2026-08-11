@@ -13,6 +13,7 @@ import { CustomerRoute } from "./routes/customer.route";
 import { DeliveryRoute } from "./routes/delivery.route";
 import { DiscountRoute } from "./routes/discount.route";
 import { FinishRoute } from "./routes/finish.route";
+import { MarketplaceRoute } from "./routes/marketplace.route";
 import { MediaRoute } from "./routes/media.route";
 import { OrderSalesRoute } from "./routes/order-sales.route";
 import { PermissionRoute } from "./routes/permission.route";
@@ -92,7 +93,8 @@ const app = new Elysia({ prefix: "/api" })
   .use(PointOfSaleRoute)
   .use(OrderSalesRoute)
   .use(StockRoute)
-  .use(DeliveryRoute);
+  .use(DeliveryRoute)
+  .use(MarketplaceRoute);
 
 app.listen(port, () => {
   logger.info(`🦊 Server running at http://localhost:${port}`);
