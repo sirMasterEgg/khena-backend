@@ -23,6 +23,7 @@ export const MODULE_REGISTRY = {
   job: ["create", "read", "update", "delete"],
   department: ["read"],
   employmentType: ["read"],
+  applicant: ["read", "delete"],
 } as const;
 
 export type ModuleName = keyof typeof MODULE_REGISTRY;

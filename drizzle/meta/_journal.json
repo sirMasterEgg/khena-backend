@@ -127,6 +127,13 @@
       "when": 1786506362403,
       "tag": "0017_create_table_jobs",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1786550092994,
+      "tag": "0018_add_applicants_table",
+      "breakpoints": true
     }
   ]
 }
