@@ -937,3 +937,29 @@ export const jobModel = t.Object({
   benefits: nullableString,
   ...auditColumns,
 });
+
+/** Ringkasan job yang di-embed di objek Applicant (GET /api/applicants). */
+export const applicantJobModel = t.Object({
+  id: t.String(),
+  jobTitle: t.String(),
+  department: jobRelationModel,
+  employmentType: jobRelationModel,
+});
+
+/** Lampiran CV pelamar; `url` diturunkan dari objectKey, bukan kolom DB. */
+export const applicantCvModel = t.Object({
+  id: t.String(),
+  objectKey: t.String(),
+  storageProvider: t.String(),
+  bucket: t.String(),
+  url: t.String(),
+});
+
+export const applicantModel = t.Object({
+  id: t.String(),
+  name: t.String(),
+  email: t.String(),
+  jobs: t.Union([applicantJobModel, t.Null()]),
+  date: t.Date(),
+  cv: t.Union([applicantCvModel, t.Null()]),
+});
