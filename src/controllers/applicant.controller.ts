@@ -10,6 +10,7 @@ import { applicantModel } from "../models/response.model";
 import type { ApplicantService } from "../services/applicant.service";
 
 const listQuery = t.Object({
+  job: t.Optional(t.String({ minLength: 1 })),
   department: t.Optional(t.String({ minLength: 1 })),
   employmentType: t.Optional(t.String({ minLength: 1 })),
   page: t.Optional(t.Numeric({ minimum: 1 })),
@@ -26,6 +27,7 @@ export const ApplicantController = (service: ApplicantService) =>
       "/",
       async ({ query }) => {
         return await service.listApplicants({
+          jobId: query.job,
           departmentId: query.department,
           employmentTypeId: query.employmentType,
           page: query.page ?? 1,

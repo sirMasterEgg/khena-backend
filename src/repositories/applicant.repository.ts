@@ -7,6 +7,7 @@ import { jobs } from "../models/job.model";
 import { db } from "../utils/db";
 
 interface ListApplicantsFilter {
+  jobId?: string;
   departmentId?: string;
   employmentTypeId?: string;
   page: number;
@@ -44,6 +45,9 @@ export class ApplicantRepository {
     filter: ListApplicantsFilter,
   ): Promise<{ rows: ApplicantWithRelations[]; total: number }> {
     const conditions: SQL[] = [];
+    if (filter.jobId) {
+      conditions.push(eq(jobs.id, filter.jobId));
+    }
     if (filter.departmentId) {
       conditions.push(eq(jobs.departmentId, filter.departmentId));
     }

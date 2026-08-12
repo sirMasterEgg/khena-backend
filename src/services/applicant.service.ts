@@ -8,6 +8,7 @@ import { buildMediaUrl } from "../utils/media-url";
 import { createStorageStrategy } from "./storage/storage.factory";
 
 interface ListApplicantsInput {
+  jobId?: string;
   departmentId?: string;
   employmentTypeId?: string;
   page: number;
@@ -54,6 +55,7 @@ export class ApplicantService {
   async listApplicants(input: ListApplicantsInput) {
     const { page, limit } = input;
     const { rows, total } = await this.repo.list({
+      jobId: input.jobId,
       departmentId: input.departmentId,
       employmentTypeId: input.employmentTypeId,
       page,
