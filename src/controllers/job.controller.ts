@@ -6,7 +6,7 @@ import {
   errorResponses,
   listEnvelope,
 } from "../models/api-schema";
-import { jobModel } from "../models/response.model";
+import { jobModel, jobSummaryModel } from "../models/response.model";
 import type { JobService } from "../services/job.service";
 
 const jobStatus = t.Union([
@@ -79,6 +79,16 @@ export const JobController = (service: JobService) =>
         query: listQuery,
         requirePermission: "job.read",
         response: { 200: listEnvelope(jobModel), ...errorResponses },
+      },
+    )
+    .get(
+      "/summary",
+      async () => {
+        return { data: await service.getJobSummary() };
+      },
+      {
+        requirePermission: "job.read",
+        response: { 200: dataEnvelope(jobSummaryModel), ...errorResponses },
       },
     )
     .get(

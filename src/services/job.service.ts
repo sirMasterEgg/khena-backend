@@ -110,6 +110,10 @@ export class JobService {
     };
   }
 
+  async getJobSummary() {
+    return await this.repo.stats();
+  }
+
   async getJobDetail(id: string) {
     const row = await this.repo.findByIdWithRelations(id);
     if (!row) {

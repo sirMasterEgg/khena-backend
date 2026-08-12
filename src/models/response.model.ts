@@ -910,6 +910,14 @@ export const departmentModel = t.Object({
   ...auditColumns,
 });
 
+/** Ringkasan jumlah job per status (GET /api/jobs/summary). */
+export const jobSummaryModel = t.Object({
+  total: t.Number(),
+  open: t.Number(),
+  closed: t.Number(),
+  draft: t.Number(),
+});
+
 /** Relasi ringkas yang di-nest di dalam response job. */
 const jobRelationModel = t.Object({ id: t.String(), name: t.String() });
 

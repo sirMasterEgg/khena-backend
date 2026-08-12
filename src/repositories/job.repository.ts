@@ -105,6 +105,32 @@ export class JobRepository {
     return { rows, total };
   }
 
+  /** Ringkasan jumlah job per status, dipakai GET /jobs/summary. */
+  async stats(): Promise<{
+    total: number;
+    open: number;
+    closed: number;
+    draft: number;
+  }> {
+    const result = await db
+      .select({
+        total: sql<number>`count(*)`,
+        open: sql<number>`count(*) filter (where ${jobs.status} = 'open')`,
+        closed: sql<number>`count(*) filter (where ${jobs.status} = 'closed')`,
+        draft: sql<number>`count(*) filter (where ${jobs.status} = 'draft')`,
+      })
+      .from(jobs)
+      .where(isNull(jobs.deletedAt));
+    const row = result[0];
+
+    return {
+      total: Number(row?.total ?? 0),
+      open: Number(row?.open ?? 0),
+      closed: Number(row?.closed ?? 0),
+      draft: Number(row?.draft ?? 0),
+    };
+  }
+
   async update(id: string, data: Partial<NewJob>): Promise<Job> {
     const result = await db
       .update(jobs)
