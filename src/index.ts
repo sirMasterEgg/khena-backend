@@ -11,8 +11,11 @@ import { CollectionRoute } from "./routes/collection.route";
 import { ColorRoute } from "./routes/color.route";
 import { CustomerRoute } from "./routes/customer.route";
 import { DeliveryRoute } from "./routes/delivery.route";
+import { DepartmentRoute } from "./routes/department.route";
 import { DiscountRoute } from "./routes/discount.route";
+import { EmploymentTypeRoute } from "./routes/employment-type.route";
 import { FinishRoute } from "./routes/finish.route";
+import { JobRoute } from "./routes/job.route";
 import { MarketplaceRoute } from "./routes/marketplace.route";
 import { MediaRoute } from "./routes/media.route";
 import { OrderSalesRoute } from "./routes/order-sales.route";
@@ -94,7 +97,10 @@ const app = new Elysia({ prefix: "/api" })
   .use(OrderSalesRoute)
   .use(StockRoute)
   .use(DeliveryRoute)
-  .use(MarketplaceRoute);
+  .use(MarketplaceRoute)
+  .use(DepartmentRoute)
+  .use(EmploymentTypeRoute)
+  .use(JobRoute);
 
 app.listen(port, () => {
   logger.info(`🦊 Server running at http://localhost:${port}`);

@@ -20,6 +20,9 @@ export const MODULE_REGISTRY = {
   delivery: ["read"],
   stock: ["create", "read"],
   marketplace: ["create", "read", "delete"],
+  job: ["create", "read", "update", "delete"],
+  department: ["read"],
+  employmentType: ["read"],
 } as const;
 
 export type ModuleName = keyof typeof MODULE_REGISTRY;

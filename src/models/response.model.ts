@@ -895,3 +895,45 @@ export const marketplaceStatsModel = t.Object({
     }),
   ),
 });
+
+/** Satu employment type (GET /api/employment-types). */
+export const employmentTypeModel = t.Object({
+  id: t.String(),
+  name: t.String(),
+  ...auditColumns,
+});
+
+/** Satu department (GET /api/departments). */
+export const departmentModel = t.Object({
+  id: t.String(),
+  name: t.String(),
+  ...auditColumns,
+});
+
+/** Ringkasan jumlah job per status (GET /api/jobs/summary). */
+export const jobSummaryModel = t.Object({
+  total: t.Number(),
+  open: t.Number(),
+  closed: t.Number(),
+  draft: t.Number(),
+});
+
+/** Relasi ringkas yang di-nest di dalam response job. */
+const jobRelationModel = t.Object({ id: t.String(), name: t.String() });
+
+/**
+ * Satu lowongan utuh. Dipakai untuk POST, PATCH, GET list, dan GET detail —
+ * keempatnya mengembalikan bentuk yang sama persis.
+ */
+export const jobModel = t.Object({
+  id: t.String(),
+  jobTitle: t.String(),
+  department: jobRelationModel,
+  location: t.String(),
+  employmentType: jobRelationModel,
+  status: t.String(),
+  roleDescription: t.String(),
+  requirements: t.String(),
+  benefits: nullableString,
+  ...auditColumns,
+});
