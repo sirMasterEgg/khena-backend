@@ -1,4 +1,13 @@
-import { and, asc, eq, ilike, inArray, isNull, type SQL, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  eq,
+  ilike,
+  inArray,
+  isNull,
+  type SQL,
+  sql,
+} from "drizzle-orm";
 import { categories } from "../models/category.model";
 import { colors } from "../models/color.model";
 import { detailProducts, products } from "../models/product.model";
@@ -110,7 +119,9 @@ export class PointOfSaleRepository {
       conditions.push(ilike(products.name, `%${filter.name}%`));
     }
     if (filter.sku) {
-      conditions.push(ilike(detailProducts.detailProductSku, `%${filter.sku}%`));
+      conditions.push(
+        ilike(detailProducts.detailProductSku, `%${filter.sku}%`),
+      );
     }
     if (filter.categoryId) {
       conditions.push(eq(products.categoryId, filter.categoryId));

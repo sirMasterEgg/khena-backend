@@ -120,6 +120,13 @@
       "when": 1786433733368,
       "tag": "0016_alter_sales_order_table_with_marketplace_support",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1786506362403,
+      "tag": "0017_create_table_jobs",
+      "breakpoints": true
     }
   ]
 }

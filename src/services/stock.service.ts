@@ -259,7 +259,10 @@ export class StockService {
           reason: "Damaged item",
         },
       ],
-      { header: true, columns: ["sku", "adjustment_type", "quantity", "reason"] },
+      {
+        header: true,
+        columns: ["sku", "adjustment_type", "quantity", "reason"],
+      },
     );
   }
 

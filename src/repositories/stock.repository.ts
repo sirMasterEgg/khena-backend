@@ -181,7 +181,10 @@ export class StockRepository {
           productName: products.name,
         })
         .from(stocks)
-        .innerJoin(detailProducts, eq(stocks.detailProductId, detailProducts.id))
+        .innerJoin(
+          detailProducts,
+          eq(stocks.detailProductId, detailProducts.id),
+        )
         .innerJoin(products, eq(detailProducts.productId, products.id))
         .where(where)
         // Tiebreaker `id` wajib: timestamp identik tanpa ini membuat urutan
@@ -192,7 +195,10 @@ export class StockRepository {
       db
         .select({ count: sql<number>`count(*)` })
         .from(stocks)
-        .innerJoin(detailProducts, eq(stocks.detailProductId, detailProducts.id))
+        .innerJoin(
+          detailProducts,
+          eq(stocks.detailProductId, detailProducts.id),
+        )
         .innerJoin(products, eq(detailProducts.productId, products.id))
         .where(where),
     ]);
@@ -239,9 +245,7 @@ export class StockRepository {
       .from(detailProducts)
       .innerJoin(products, eq(products.id, detailProducts.productId))
       .leftJoin(stocks, eq(stocks.detailProductId, detailProducts.id))
-      .where(
-        and(isNull(detailProducts.deletedAt), isNull(products.deletedAt)),
-      )
+      .where(and(isNull(detailProducts.deletedAt), isNull(products.deletedAt)))
       .groupBy(
         detailProducts.id,
         detailProducts.detailProductSku,
@@ -279,10 +283,7 @@ export class StockRepository {
         .orderBy(asc(perVariant.qty), asc(perVariant.sku))
         .limit(input.limit)
         .offset((input.page - 1) * input.limit),
-      db
-        .select({ count: sql<number>`count(*)` })
-        .from(perVariant)
-        .where(where),
+      db.select({ count: sql<number>`count(*)` }).from(perVariant).where(where),
     ]);
 
     return {
