@@ -963,3 +963,26 @@ export const applicantModel = t.Object({
   date: t.Date(),
   cv: t.Union([applicantCvModel, t.Null()]),
 });
+
+/** Lampiran inquiry; `url` diturunkan dari objectKey, bukan kolom DB. */
+export const inquiryAttachmentModel = t.Object({
+  id: t.String(),
+  objectKey: t.String(),
+  storageProvider: t.String(),
+  bucket: t.String(),
+  url: t.String(),
+});
+
+export const inquiryModel = t.Object({
+  id: t.String(),
+  name: t.String(),
+  email: t.String(),
+  phone: t.String(),
+  subject: t.String(),
+  message: t.String(),
+  attachment: t.Union([inquiryAttachmentModel, t.Null()]),
+  readAt: t.Union([t.Date(), t.Null()]),
+  starredAt: t.Union([t.Date(), t.Null()]),
+  repliedAt: t.Union([t.Date(), t.Null()]),
+  createdAt: t.Date(),
+});
