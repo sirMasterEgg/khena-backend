@@ -1,4 +1,4 @@
-import { t } from "elysia";
+import { type TSchema, t } from "elysia";
 import { auditColumns } from "./api-schema";
 
 /**
@@ -985,4 +985,103 @@ export const inquiryModel = t.Object({
   starredAt: t.Union([t.Date(), t.Null()]),
   repliedAt: t.Union([t.Date(), t.Null()]),
   createdAt: t.Date(),
+});
+
+// ---- Dashboard ----
+
+const dashboardSalesPointModel = t.Object({
+  period: t.String(),
+  revenue: t.Number(),
+  orders: t.Number(),
+});
+
+const dashboardRecentOrderModel = t.Object({
+  id: t.String(),
+  invoiceNumber: t.String(),
+  orderDate: t.String(),
+  customerName: nullableString,
+  total: t.Number(),
+  status: t.String(),
+  createdVia: t.String(),
+});
+
+const dashboardTopProductModel = t.Object({
+  detailProductId: t.String(),
+  sku: t.String(),
+  productName: t.String(),
+  colorName: t.String(),
+  quantitySold: t.Number(),
+  revenue: t.Number(),
+  imageUrl: nullableString,
+});
+
+const dashboardPendingTasksModel = t.Object({
+  orderAwaitingFulfillment: t.Number(),
+  outOfStockProducts: t.Number(),
+  lowStockProducts: t.Number(),
+  unreadMessages: t.Number(),
+  draftProducts: t.Number(),
+});
+
+/** GET /api/dashboard */
+export const dashboardModel = t.Object({
+  period: t.Object({
+    startDate: t.String(),
+    endDate: t.String(),
+    groupBy: t.String(),
+  }),
+  totalRevenue: t.Number(),
+  totalOrders: t.Number(),
+  totalNewCustomers: t.Number(),
+  totalContactMessages: t.Number(),
+  salesOverview: t.Array(dashboardSalesPointModel),
+  recentOrders: t.Array(dashboardRecentOrderModel),
+  topProducts: t.Array(dashboardTopProductModel),
+  pendingTasks: dashboardPendingTasksModel,
+});
+
+/** Helper: tiap kategori pending = { total, items }. */
+const pendingSection = <T extends TSchema>(item: T) =>
+  t.Object({ total: t.Number(), items: t.Array(item) });
+
+const dashboardPendingOrderModel = t.Object({
+  id: t.String(),
+  invoiceNumber: t.String(),
+  orderDate: t.String(),
+  customerName: nullableString,
+  total: t.Number(),
+  status: t.String(),
+});
+
+const dashboardStockAlertModel = t.Object({
+  detailProductId: t.String(),
+  sku: t.String(),
+  productName: t.String(),
+  quantity: t.Number(),
+  minStockAlert: nullableNumber,
+  imageUrl: nullableString,
+});
+
+const dashboardUnreadMessageModel = t.Object({
+  id: t.String(),
+  name: t.String(),
+  email: t.String(),
+  subject: t.String(),
+  createdAt: t.Date(),
+});
+
+const dashboardDraftProductModel = t.Object({
+  id: t.String(),
+  name: t.String(),
+  baseSku: t.String(),
+  updatedAt: t.Date(),
+});
+
+/** GET /api/dashboard/pending */
+export const dashboardPendingModel = t.Object({
+  orderAwaitingAction: pendingSection(dashboardPendingOrderModel),
+  outOfStockProducts: pendingSection(dashboardStockAlertModel),
+  lowStockProducts: pendingSection(dashboardStockAlertModel),
+  unreadMessages: pendingSection(dashboardUnreadMessageModel),
+  draftProducts: pendingSection(dashboardDraftProductModel),
 });

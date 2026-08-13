@@ -11,6 +11,7 @@ import { CategoryRoute } from "./routes/category.route";
 import { CollectionRoute } from "./routes/collection.route";
 import { ColorRoute } from "./routes/color.route";
 import { CustomerRoute } from "./routes/customer.route";
+import { DashboardRoute } from "./routes/dashboard.route";
 import { DeliveryRoute } from "./routes/delivery.route";
 import { DepartmentRoute } from "./routes/department.route";
 import { DiscountRoute } from "./routes/discount.route";
@@ -104,7 +105,8 @@ const app = new Elysia({ prefix: "/api" })
   .use(EmploymentTypeRoute)
   .use(JobRoute)
   .use(ApplicantRoute)
-  .use(InquiryRoute);
+  .use(InquiryRoute)
+  .use(DashboardRoute);
 
 app.listen(port, () => {
   logger.info(`🦊 Server running at http://localhost:${port}`);
