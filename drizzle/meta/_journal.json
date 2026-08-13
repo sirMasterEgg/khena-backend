@@ -134,6 +134,13 @@
       "when": 1786550092994,
       "tag": "0018_add_applicants_table",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1786596892994,
+      "tag": "0019_add_inquiries_table",
+      "breakpoints": true
     }
   ]
 }

@@ -16,6 +16,7 @@ import { DepartmentRoute } from "./routes/department.route";
 import { DiscountRoute } from "./routes/discount.route";
 import { EmploymentTypeRoute } from "./routes/employment-type.route";
 import { FinishRoute } from "./routes/finish.route";
+import { InquiryRoute } from "./routes/inquiry.route.ts";
 import { JobRoute } from "./routes/job.route";
 import { MarketplaceRoute } from "./routes/marketplace.route";
 import { MediaRoute } from "./routes/media.route";
@@ -102,7 +103,8 @@ const app = new Elysia({ prefix: "/api" })
   .use(DepartmentRoute)
   .use(EmploymentTypeRoute)
   .use(JobRoute)
-  .use(ApplicantRoute);
+  .use(ApplicantRoute)
+  .use(InquiryRoute);
 
 app.listen(port, () => {
   logger.info(`🦊 Server running at http://localhost:${port}`);
