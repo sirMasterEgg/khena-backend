@@ -62,3 +62,16 @@ export function eachDayIso(start: string, end: string): string[] {
   }
   return days;
 }
+
+/** Tanggal 1 dari bulan tanggal tsb. startOfMonthIso("2026-08-13") === "2026-08-01" */
+export function startOfMonthIso(iso: string): string {
+  return parseIso(iso).startOf("month").format(ISO_DATE_FORMAT);
+}
+
+/** Geser tanggal n bulan (boleh negatif), lalu snap ke tanggal 1. */
+export function addMonthsIso(iso: string, months: number): string {
+  return parseIso(iso)
+    .add(months, "month")
+    .startOf("month")
+    .format(ISO_DATE_FORMAT);
+}
