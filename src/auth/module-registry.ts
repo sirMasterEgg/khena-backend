@@ -25,6 +25,7 @@ export const MODULE_REGISTRY = {
   employmentType: ["read"],
   applicant: ["read", "delete"],
   inquiry: ["read", "update", "delete"],
+  dashboard: ["read"],
 } as const;
 
 export type ModuleName = keyof typeof MODULE_REGISTRY;
