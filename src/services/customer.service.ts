@@ -228,4 +228,48 @@ export class CustomerService {
   ): Promise<void> {
     await this.repo.recordCompletedOrder(customerId, orderTotal, orderDate, tx);
   }
+
+  /**
+   * Jembatan antara akun website (`auth_users`, dikelola better-auth) dan
+   * jejak belanja (`customers`). Signup TIDAK memanggil ini — customer baru
+   * lahir saat orangnya benar-benar bertransaksi.
+   *
+   * Dipanggil saat checkout pertama sebuah akun (modul checkout belum ada di
+   * codebase ini, jadi untuk sementara method ini belum punya pemanggil).
+   *
+   * Urutan klaimnya: tautan yang sudah ada → customer lama dengan email sama →
+   * dengan phone sama → kalau tidak ada, bikin customer baru. Dua checkout
+   * paralel bisa balapan di sini; index `customers_user_id_active_unique`
+   * adalah pengaman terakhirnya.
+   */
+  async resolveCustomerForUser(
+    user: { id: string; name: string; email: string; phone: string },
+    tx?: Tx,
+  ): Promise<Customer> {
+    const linked = await this.repo.findByUserId(user.id, tx);
+    if (linked) {
+      return linked;
+    }
+
+    const byEmail = await this.repo.findUnlinkedByEmail(user.email, tx);
+    if (byEmail) {
+      return this.repo.linkUser(byEmail.id, user.id, tx);
+    }
+
+    const byPhone = await this.repo.findUnlinkedByPhone(user.phone, tx);
+    if (byPhone) {
+      return this.repo.linkUser(byPhone.id, user.id, tx);
+    }
+
+    return this.repo.create(
+      {
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        joinedAt: new Date(),
+        userId: user.id,
+      },
+      tx,
+    );
+  }
 }

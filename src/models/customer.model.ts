@@ -10,6 +10,7 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 import { auditColumns } from "./audit-columns";
+import { auth_users } from "./auth-schema";
 
 export const customers = pgTable(
   "customers",
@@ -30,6 +31,11 @@ export const customers = pgTable(
     lastOrderAt: timestamp("last_order_at"),
     joinedAt: timestamp("joined_at").notNull(),
     internalNotes: text("internal_notes"),
+    // Tautan opsional ke akun website (better-auth). Nullable karena mayoritas
+    // customer datang dari channel non-website (WA, telepon, POS) dan tidak
+    // punya akun. Kolom internal — tidak pernah diekspos di response manapun.
+    // Bertipe text mengikuti auth_users.id yang di-generate better-auth.
+    userId: text("user_id").references(() => auth_users.id),
     ...auditColumns,
   },
   (table) => [
@@ -41,6 +47,11 @@ export const customers = pgTable(
     uniqueIndex("customers_phone_active_unique")
       .on(table.phone)
       .where(sql`${table.deletedAt} IS NULL`),
+    // Satu akun website tertaut ke paling banyak satu customer aktif. Ini
+    // pengaman terakhir kalau dua checkout paralel sama-sama mencoba menaut.
+    uniqueIndex("customers_user_id_active_unique")
+      .on(table.userId)
+      .where(sql`${table.deletedAt} IS NULL AND ${table.userId} IS NOT NULL`),
   ],
 );
 
