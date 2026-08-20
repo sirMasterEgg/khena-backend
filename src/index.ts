@@ -2,6 +2,8 @@ import { cors } from "@elysia/cors";
 import { openapi } from "@elysia/openapi";
 import { Elysia } from "elysia";
 import { syncPermissions } from "./auth/permission-sync";
+import { userAuth } from "./auth/user-auth";
+import { userAuthConfig } from "./config/user-auth.config";
 import { loggerPlugin } from "./plugins/logger.plugin";
 import { AdministratorRoute } from "./routes/administrator.route";
 import { ApplicantRoute } from "./routes/applicant.route";
@@ -38,8 +40,25 @@ const port = process.env.PORT ? Number(process.env.PORT) : 3000;
 // Generate & sinkron permission dari Module Registry sebelum server listen.
 await syncPermissions();
 
+// Handler better-auth (auth user) di-mount sebagai instance terpisah. Route
+// hasil mount melewati .onError() di bawah dan plugin openapi() — itu memang
+// konsekuensi yang diterima: response-nya memakai format native better-auth,
+// bukan envelope { data } / { error } milik API ini.
+const userAuthPlugin = new Elysia({ name: "user-auth" }).mount(
+  userAuth.handler,
+);
+
 const app = new Elysia({ prefix: "/api" })
-  .use(cors())
+  .use(
+    cors({
+      // Sesi better-auth memakai cookie, jadi credentials wajib true — dan
+      // wildcard "*" tidak boleh dipakai bersamanya, origin harus eksplisit.
+      origin: [userAuthConfig.appPublicUrl, userAuthConfig.adminAppUrl],
+      credentials: true,
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token"],
+    }),
+  )
   .use(openapi())
   .use(loggerPlugin)
   .onError(({ code, error, set }) => {
@@ -80,6 +99,7 @@ const app = new Elysia({ prefix: "/api" })
     return errorBody("INTERNAL_ERROR", "internal server error");
   })
   .get("/health", () => ({ status: "ok" }))
+  .use(userAuthPlugin)
   .use(AuthRoute)
   .use(AdministratorRoute)
   .use(RoleRoute)

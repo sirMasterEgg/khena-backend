@@ -129,6 +129,78 @@ export class CustomerRepository {
     return result[0];
   }
 
+  /** Customer aktif yang sudah tertaut ke satu akun website (better-auth). */
+  async findByUserId(
+    userId: string,
+    tx: DbOrTx = db,
+  ): Promise<Customer | undefined> {
+    const result = await tx
+      .select()
+      .from(customers)
+      .where(and(eq(customers.userId, userId), isNull(customers.deletedAt)))
+      .limit(1);
+    return result[0];
+  }
+
+  /**
+   * Customer aktif dengan email/phone tsb yang BELUM tertaut ke akun website.
+   * Dipakai `resolveCustomerForUser` untuk mengklaim jejak belanja lama; yang
+   * sudah punya `userId` sengaja dilewati supaya tidak dibajak akun lain.
+   */
+  async findUnlinkedByEmail(
+    email: string,
+    tx: DbOrTx = db,
+  ): Promise<Customer | undefined> {
+    const result = await tx
+      .select()
+      .from(customers)
+      .where(
+        and(
+          eq(customers.email, email),
+          isNull(customers.userId),
+          isNull(customers.deletedAt),
+        ),
+      )
+      .limit(1);
+    return result[0];
+  }
+
+  async findUnlinkedByPhone(
+    phone: string,
+    tx: DbOrTx = db,
+  ): Promise<Customer | undefined> {
+    const result = await tx
+      .select()
+      .from(customers)
+      .where(
+        and(
+          eq(customers.phone, phone),
+          isNull(customers.userId),
+          isNull(customers.deletedAt),
+        ),
+      )
+      .limit(1);
+    return result[0];
+  }
+
+  /** Tautkan satu customer yang sudah ada ke sebuah akun website. */
+  async linkUser(
+    customerId: string,
+    userId: string,
+    tx: DbOrTx = db,
+  ): Promise<Customer> {
+    const result = await tx
+      .update(customers)
+      .set(stampUpdate({ userId }))
+      .where(eq(customers.id, customerId))
+      .returning();
+    const row = result[0];
+    if (!row) {
+      throw new Error("failed to link customer to user");
+    }
+    return row;
+  }
+
   async create(data: NewCustomer, tx: DbOrTx = db): Promise<Customer> {
     const result = await tx
       .insert(customers)

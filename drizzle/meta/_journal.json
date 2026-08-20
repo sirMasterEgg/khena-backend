@@ -141,6 +141,20 @@
       "when": 1786596892994,
       "tag": "0019_add_inquiries_table",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1787135438209,
+      "tag": "0020_create_better_auth_table",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1787136138474,
+      "tag": "0021_add_issuer_column_better_auth_table",
+      "breakpoints": true
     }
   ]
 }

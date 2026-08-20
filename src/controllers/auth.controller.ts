@@ -43,7 +43,7 @@ function setRefreshCookie(cookie: Cookies, refreshTokenRaw: string) {
     httpOnly: true,
     sameSite: "lax",
     secure: authConfig.cookieSecure,
-    path: "/api/auth",
+    path: "/api/admin-auth",
     maxAge: authConfig.refreshTtl,
   });
 }
@@ -54,13 +54,16 @@ function removePreSessionCookie(cookie: Cookies) {
     httpOnly: true,
     sameSite: "lax",
     secure: authConfig.cookieSecure,
-    path: "/api/auth",
+    path: "/api/admin-auth",
     maxAge: 0,
   });
 }
 
+// Auth ADMINISTRATOR (dashboard internal). Prefix-nya pindah dari /api/auth ke
+// /api/admin-auth supaya /api/auth bisa dipakai auth user yang dibangun dengan
+// better-auth — lihat src/auth/user-auth.ts.
 export const AuthController = (service: AuthService) =>
-  new Elysia({ prefix: "/auth" })
+  new Elysia({ prefix: "/admin-auth" })
     .use(csrfPlugin)
     // Bootstrap CSRF token: anonim → diikat ke pre-session (stateless signed
     // cookie), sudah login → diikat ke sesi login.
@@ -85,7 +88,7 @@ export const AuthController = (service: AuthService) =>
             httpOnly: true,
             sameSite: "lax",
             secure: authConfig.cookieSecure,
-            path: "/api/auth",
+            path: "/api/admin-auth",
             maxAge: authConfig.preSessionTtl,
           });
         }
@@ -232,7 +235,7 @@ export const AuthController = (service: AuthService) =>
           httpOnly: true,
           sameSite: "lax",
           secure: authConfig.cookieSecure,
-          path: "/api/auth",
+          path: "/api/admin-auth",
           maxAge: 0,
         });
         cookie.csrfToken?.set({
