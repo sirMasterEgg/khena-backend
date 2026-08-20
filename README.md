@@ -66,7 +66,7 @@ Keduanya opsional — kalau tidak diisi, dipakai nilai default di bawah.
 
 | Variable | Default | Keterangan |
 |---|---|---|
-| `MAX_DIRECT_UPLOAD_BYTES` | `10485760` (10 MB) | Batas ukuran satu file di `POST /api/media/upload-direct`. Nilainya konservatif karena file dibaca penuh ke memori server. |
+| `MAX_DIRECT_UPLOAD_BYTES` | `10485760` (10 MB) | Batas ukuran satu file di `POST /api/admin/media/upload-direct`. Nilainya konservatif karena file dibaca penuh ke memori server. |
 | `MAX_MULTIPART_UPLOAD_BYTES` | `524288000` (500 MB) | Batas ukuran satu file di jalur multipart upload. Boleh jauh lebih besar karena file dikirim per part. |
 
 ```env
@@ -133,7 +133,7 @@ Response:
 
 ### Media Management
 
-Semua endpoint di bawah prefix `/api/media`.
+Semua endpoint di bawah prefix `/api/admin/media`.
 
 Semua upload, download, dan delete melalui server — **tidak ada presigned URL**.
 

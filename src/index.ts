@@ -48,6 +48,38 @@ const userAuthPlugin = new Elysia({ name: "user-auth" }).mount(
   userAuth.handler,
 );
 
+// Semua endpoint milik dashboard admin hidup di bawah /api/admin.
+// Auth user (better-auth, /api/auth) dan /api/health sengaja berada di luar
+// group ini karena bukan milik admin.
+const adminApi = new Elysia({ prefix: "/admin" })
+  .use(AuthRoute)
+  .use(AdministratorRoute)
+  .use(RoleRoute)
+  .use(PermissionRoute)
+  .use(ProductRoute)
+  .use(MediaRoute)
+  .use(RoomTypeRoute)
+  .use(CategoryRoute)
+  .use(CollectionRoute)
+  .use(FinishRoute)
+  .use(ColorRoute)
+  .use(CareInstructionRoute)
+  .use(CustomerRoute)
+  .use(SupplierRoute)
+  .use(PurchaseOrderRoute)
+  .use(DiscountRoute)
+  .use(PointOfSaleRoute)
+  .use(OrderSalesRoute)
+  .use(StockRoute)
+  .use(DeliveryRoute)
+  .use(MarketplaceRoute)
+  .use(DepartmentRoute)
+  .use(EmploymentTypeRoute)
+  .use(JobRoute)
+  .use(ApplicantRoute)
+  .use(InquiryRoute)
+  .use(DashboardRoute);
+
 const app = new Elysia({ prefix: "/api" })
   .use(
     cors({
@@ -100,33 +132,7 @@ const app = new Elysia({ prefix: "/api" })
   })
   .get("/health", () => ({ status: "ok" }))
   .use(userAuthPlugin)
-  .use(AuthRoute)
-  .use(AdministratorRoute)
-  .use(RoleRoute)
-  .use(PermissionRoute)
-  .use(ProductRoute)
-  .use(MediaRoute)
-  .use(RoomTypeRoute)
-  .use(CategoryRoute)
-  .use(CollectionRoute)
-  .use(FinishRoute)
-  .use(ColorRoute)
-  .use(CareInstructionRoute)
-  .use(CustomerRoute)
-  .use(SupplierRoute)
-  .use(PurchaseOrderRoute)
-  .use(DiscountRoute)
-  .use(PointOfSaleRoute)
-  .use(OrderSalesRoute)
-  .use(StockRoute)
-  .use(DeliveryRoute)
-  .use(MarketplaceRoute)
-  .use(DepartmentRoute)
-  .use(EmploymentTypeRoute)
-  .use(JobRoute)
-  .use(ApplicantRoute)
-  .use(InquiryRoute)
-  .use(DashboardRoute);
+  .use(adminApi);
 
 app.listen(port, () => {
   logger.info(`🦊 Server running at http://localhost:${port}`);
