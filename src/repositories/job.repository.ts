@@ -147,4 +147,39 @@ export class JobRepository {
   async softDelete(id: string): Promise<void> {
     await db.update(jobs).set(stampDelete()).where(eq(jobs.id, id));
   }
+
+  /** Dipakai `generateUniqueSlug` — true kalau slug sudah dipakai baris aktif lain. */
+  async slugExists(slug: string, excludeId?: string): Promise<boolean> {
+    const conditions: SQL[] = [eq(jobs.slug, slug), isNull(jobs.deletedAt)];
+    if (excludeId) {
+      conditions.push(sql`${jobs.id} <> ${excludeId}`);
+    }
+    const result = await db
+      .select({ id: jobs.id })
+      .from(jobs)
+      .where(and(...conditions))
+      .limit(1);
+    return result.length > 0;
+  }
+
+  /**
+   * Cari job by slug beserta relasinya (dipakai GET /api/careers/:id ketika
+   * `:id` bukan UUID — lihat issue #98 §12.2).
+   */
+  async findBySlugWithRelations(
+    slug: string,
+  ): Promise<JobWithRelations | undefined> {
+    const result = await db
+      .select({
+        ...getTableColumns(jobs),
+        departmentName: departments.name,
+        employmentTypeName: employmentTypes.name,
+      })
+      .from(jobs)
+      .leftJoin(departments, eq(jobs.departmentId, departments.id))
+      .leftJoin(employmentTypes, eq(jobs.employmentTypeId, employmentTypes.id))
+      .where(and(eq(jobs.slug, slug), isNull(jobs.deletedAt)))
+      .limit(1);
+    return result[0];
+  }
 }

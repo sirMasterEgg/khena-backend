@@ -150,4 +150,21 @@ export class CategoryRepository {
   async softDelete(id: string): Promise<void> {
     await db.update(categories).set(stampDelete()).where(eq(categories.id, id));
   }
+
+  /** Dipakai `generateUniqueSlug` — true kalau slug sudah dipakai baris aktif lain. */
+  async slugExists(slug: string, excludeId?: string): Promise<boolean> {
+    const conditions: SQL[] = [
+      eq(categories.slug, slug),
+      isNull(categories.deletedAt),
+    ];
+    if (excludeId) {
+      conditions.push(sql`${categories.id} <> ${excludeId}`);
+    }
+    const result = await db
+      .select({ id: categories.id })
+      .from(categories)
+      .where(and(...conditions))
+      .limit(1);
+    return result.length > 0;
+  }
 }

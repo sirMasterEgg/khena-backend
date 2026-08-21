@@ -14,6 +14,7 @@ const nullableNumber = t.Union([t.Number(), t.Null()]);
 export const roomTypeModel = t.Object({
   id: t.String(),
   roomType: t.String(),
+  slug: t.String(),
   ...auditColumns,
 });
 
@@ -23,6 +24,7 @@ export const categoryModel = t.Object({
   order: t.Number(),
   roomTypeId: t.String(),
   status: t.String(),
+  slug: t.String(),
   ...auditColumns,
 });
 
@@ -32,6 +34,7 @@ export const categoryDetailModel = t.Object({
   category: t.String(),
   order: t.Number(),
   status: t.String(),
+  slug: t.String(),
   roomType: t.Object({ id: t.String(), roomType: t.String() }),
   ...auditColumns,
 });
@@ -928,6 +931,7 @@ const jobRelationModel = t.Object({ id: t.String(), name: t.String() });
 export const jobModel = t.Object({
   id: t.String(),
   jobTitle: t.String(),
+  slug: t.String(),
   department: jobRelationModel,
   location: t.String(),
   employmentType: jobRelationModel,
