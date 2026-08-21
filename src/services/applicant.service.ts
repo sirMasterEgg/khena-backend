@@ -24,6 +24,7 @@ export class ApplicantService {
       id: row.id,
       name: row.name,
       email: row.email,
+      phone: row.phone,
       jobs: row.jobId
         ? {
             id: row.jobId,

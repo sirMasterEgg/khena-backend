@@ -963,6 +963,7 @@ export const applicantModel = t.Object({
   id: t.String(),
   name: t.String(),
   email: t.String(),
+  phone: t.String(),
   jobs: t.Union([applicantJobModel, t.Null()]),
   date: t.Date(),
   cv: t.Union([applicantCvModel, t.Null()]),
