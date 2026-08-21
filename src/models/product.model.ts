@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   bigint,
+  index,
   integer,
   pgTable,
   text,
@@ -93,6 +94,12 @@ export const detailProducts = pgTable(
     uniqueIndex("detail_products_detail_product_sku_active_unique")
       .on(table.detailProductSku)
       .where(sql`${table.deletedAt} IS NULL`),
+    // Menopang query "variant pertama" (ORDER BY product_id, created_at ASC)
+    // yang dijalankan berkali-kali per request di endpoint publik (issue #98 §5.4).
+    index("detail_products_product_id_created_at_idx").on(
+      table.productId,
+      table.createdAt,
+    ),
   ],
 );
 
