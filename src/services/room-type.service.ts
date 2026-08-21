@@ -2,6 +2,7 @@ import type { CategoryRepository } from "../repositories/category.repository";
 import type { RoomTypeRepository } from "../repositories/room-type.repository";
 import { ConflictError, NotFoundError } from "../utils/errors";
 import { logger } from "../utils/logger";
+import { generateUniqueSlug } from "../utils/slug";
 
 interface CreateRoomTypeInput {
   roomType: string;
@@ -19,8 +20,12 @@ export class RoomTypeService {
   ) {}
 
   async createRoomType(input: CreateRoomTypeInput) {
+    const slug = await generateUniqueSlug(input.roomType, (candidate) =>
+      this.repo.slugExists(candidate),
+    );
     const created = await this.repo.create({
       roomType: input.roomType,
+      slug,
     });
     logger.info({ roomTypeId: created.id }, "room type created");
     return created;

@@ -19,6 +19,7 @@ export interface ApplicantWithRelations {
   id: string;
   name: string;
   email: string;
+  phone: string;
   createdAt: Date;
   jobId: string | null;
   jobTitle: string | null;
@@ -62,6 +63,7 @@ export class ApplicantRepository {
         id: applicants.id,
         name: applicants.name,
         email: applicants.email,
+        phone: applicants.phone,
         createdAt: applicants.createdAt,
         jobId: jobs.id,
         jobTitle: jobs.jobTitle,

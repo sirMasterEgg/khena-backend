@@ -7,6 +7,7 @@ import type {
 } from "../repositories/job.repository";
 import { NotFoundError } from "../utils/errors";
 import { logger } from "../utils/logger";
+import { generateUniqueSlug } from "../utils/slug";
 
 interface CreateJobInput {
   jobTitle: string;
@@ -48,6 +49,7 @@ export class JobService {
     return {
       id: row.id,
       jobTitle: row.jobTitle,
+      slug: row.slug,
       department: { id: row.departmentId, name: row.departmentName ?? "" },
       location: row.location,
       employmentType: {
@@ -88,7 +90,10 @@ export class JobService {
     await this.assertDepartmentExists(input.departmentId);
     await this.assertEmploymentTypeExists(input.employmentTypeId);
 
-    const created = await this.repo.create({ ...input });
+    const slug = await generateUniqueSlug(input.jobTitle, (candidate) =>
+      this.repo.slugExists(candidate),
+    );
+    const created = await this.repo.create({ ...input, slug });
     logger.info({ jobId: created.id }, "job created");
 
     const row = await this.repo.findByIdWithRelations(created.id);
@@ -136,7 +141,15 @@ export class JobService {
     }
 
     const patch: Partial<NewJob> = {};
-    if (input.jobTitle !== undefined) patch.jobTitle = input.jobTitle;
+    if (input.jobTitle !== undefined) {
+      patch.jobTitle = input.jobTitle;
+      // Regenerate slug hanya kalau judul berubah (lihat issue #98 §4.4).
+      if (input.jobTitle !== existing.jobTitle) {
+        patch.slug = await generateUniqueSlug(input.jobTitle, (candidate) =>
+          this.repo.slugExists(candidate, id),
+        );
+      }
+    }
     if (input.departmentId !== undefined)
       patch.departmentId = input.departmentId;
     if (input.location !== undefined) patch.location = input.location;

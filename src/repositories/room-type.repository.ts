@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, type SQL, sql } from "drizzle-orm";
 import {
   type NewRoomType,
   type RoomType,
@@ -52,5 +52,22 @@ export class RoomTypeRepository {
 
   async softDelete(id: string): Promise<void> {
     await db.update(roomTypes).set(stampDelete()).where(eq(roomTypes.id, id));
+  }
+
+  /** Dipakai `generateUniqueSlug` — true kalau slug sudah dipakai baris aktif lain. */
+  async slugExists(slug: string, excludeId?: string): Promise<boolean> {
+    const conditions: SQL[] = [
+      eq(roomTypes.slug, slug),
+      isNull(roomTypes.deletedAt),
+    ];
+    if (excludeId) {
+      conditions.push(sql`${roomTypes.id} <> ${excludeId}`);
+    }
+    const result = await db
+      .select({ id: roomTypes.id })
+      .from(roomTypes)
+      .where(and(...conditions))
+      .limit(1);
+    return result.length > 0;
   }
 }
