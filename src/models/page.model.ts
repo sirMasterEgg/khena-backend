@@ -9,9 +9,8 @@ import { auditColumns } from "./audit-columns";
 
 /**
  * Konten CMS ringan untuk halaman statis storefront (home, about, dst),
- * dipecah per section (hero, banner, testimonial, ...). Hanya dibaca lewat
- * GET publik — CRUD admin di luar scope, data diisi manual lewat SQL/seed
- * (lihat issue #98 §2).
+ * dipecah per section (hero, banner, testimonial, ...). Dikelola lewat
+ * endpoint admin /api/admin/pages dan dibaca publik lewat GET /api/pages.
  */
 export const pages = pgTable(
   "pages",
@@ -24,11 +23,7 @@ export const pages = pgTable(
     // Bentuk `data` sengaja bebas: tiap section punya struktur sendiri
     // (hero, banner, testimonial, ...) dan frontend yang menafsirkannya.
     data: jsonb("data").notNull(),
-    // "visible" | "hidden" — kosakata yang sama dengan detail_products.visibility,
-    // bukan istilah baru (public/private). Tetap varchar mengikuti konvensi
-    // repo yang tidak memakai pg enum; pembatasan nilai di layer aplikasi.
-    visibility: varchar("visibility", { length: 15 }).notNull(),
-    // "draft" | "published"
+    // "draft" | "published" — satu-satunya penentu tampil di storefront.
     status: varchar("status", { length: 15 }).notNull(),
     ...auditColumns,
   },

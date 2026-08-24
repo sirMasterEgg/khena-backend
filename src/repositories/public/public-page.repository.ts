@@ -9,15 +9,12 @@ interface ListPublicPagesFilter {
 
 export class PublicPageRepository {
   /**
-   * Semua section yang published + visible, tanpa paginasi — jumlah barisnya
-   * sedikit dan frontend biasanya mengambil semua section satu halaman
-   * sekaligus (issue #98 §7.1).
+   * Semua section yang published, tanpa paginasi — jumlah barisnya sedikit
+   * dan frontend biasanya mengambil semua section satu halaman sekaligus
+   * (issue #98 §7.1).
    */
   async list(filter: ListPublicPagesFilter) {
-    const conditions: SQL[] = [
-      eq(pages.status, "published"),
-      eq(pages.visibility, "visible"),
-    ];
+    const conditions: SQL[] = [eq(pages.status, "published")];
     if (filter.page) {
       conditions.push(eq(pages.page, filter.page));
     }
