@@ -1,4 +1,5 @@
-import { and, asc, eq, isNull, ne, type SQL } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, ne, type SQL } from "drizzle-orm";
+import { media } from "../models/media.model";
 import { type NewPage, type Page, pages } from "../models/page.model";
 import { stampCreate, stampUpdate } from "../utils/audit";
 import { db } from "../utils/db";
@@ -75,6 +76,36 @@ export class PageRepository {
       throw new Error("failed to create page");
     }
     return row;
+  }
+
+  /**
+   * `data` milik seluruh section lain. Dipakai untuk mengecek apakah sebuah
+   * file masih dirujuk section lain sebelum dihapus dari storage. Tabel ini
+   * kecil (satu baris = satu section), jadi diambil sekaligus.
+   */
+  async listDataExcept(excludeId: string): Promise<unknown[]> {
+    const rows = await db
+      .select({ data: pages.data })
+      .from(pages)
+      .where(and(ne(pages.id, excludeId), isNull(pages.deletedAt)));
+    return rows.map((row) => row.data);
+  }
+
+  /**
+   * Subset objectKey yang tercatat di tabel `media`. File semacam ini milik
+   * Media Library, bukan modul pages, jadi tidak boleh ikut dihapus saat
+   * `data` diganti. Row yang sudah soft delete sengaja ikut dihitung — file
+   * fisiknya masih ada dan masih bisa dipulihkan.
+   */
+  async findMediaObjectKeys(objectKeys: string[]): Promise<string[]> {
+    if (objectKeys.length === 0) {
+      return [];
+    }
+    const rows = await db
+      .select({ objectKey: media.objectKey })
+      .from(media)
+      .where(inArray(media.objectKey, objectKeys));
+    return rows.map((row) => row.objectKey);
   }
 
   async update(id: string, data: Partial<NewPage>): Promise<Page> {

@@ -3,7 +3,7 @@ import type { NewPage, Page } from "../models/page.model";
 import type { PageRepository } from "../repositories/page.repository";
 import { BadRequestError, ConflictError, NotFoundError } from "../utils/errors";
 import { logger } from "../utils/logger";
-import { buildMediaUrl } from "../utils/media-url";
+import { buildMediaUrl, objectKeyFromUrl } from "../utils/media-url";
 import type { FileService } from "./file.service";
 
 const MAX_PAGE_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -17,6 +17,10 @@ const ALLOWED_IMAGE_MIME = new Set([
 ]);
 
 const FILE_PLACEHOLDER_PREFIX = "@file:";
+
+// Seluruh gambar milik modul ini disimpan di bawah prefix ini. Dipakai dua
+// arah: saat upload, dan saat memutuskan apakah sebuah file boleh dihapus.
+const PAGE_FOLDER_PREFIX = "pages";
 
 // Batas kedalaman rekursi saat menelusuri JSON — penjaga supaya payload
 // bersarang ekstrem tidak menghabiskan stack.
@@ -92,8 +96,52 @@ function resolvePlaceholders(
 }
 
 /**
+ * Kumpulkan objectKey milik modul ini (prefix "pages/") dari seluruh string
+ * URL di dalam JSON. Dipakai untuk membandingkan gambar lama vs gambar baru.
+ *
+ * Beda dari `resolvePlaceholders`, fungsi ini diam saja saat kedalaman habis:
+ * sumbernya bisa berupa `data` yang sudah tersimpan di DB, dan gagal
+ * membersihkan file lebih baik daripada menggagalkan request.
+ */
+function collectPageObjectKeys(
+  value: unknown,
+  into: Set<string>,
+  depth = 0,
+): void {
+  if (depth > MAX_JSON_DEPTH) {
+    return;
+  }
+
+  if (typeof value === "string") {
+    const key = objectKeyFromUrl(value);
+    if (key?.startsWith(`${PAGE_FOLDER_PREFIX}/`)) {
+      into.add(key);
+    }
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectPageObjectKeys(item, into, depth + 1);
+    }
+    return;
+  }
+
+  if (value !== null && typeof value === "object") {
+    for (const item of Object.values(value)) {
+      collectPageObjectKeys(item, into, depth + 1);
+    }
+  }
+}
+
+/**
  * CRUD admin untuk konten CMS `pages`, termasuk upload gambar langsung di
  * dalam payload `data` lewat penanda "@file:<key>" (issue #100 §2).
+ *
+ * Gambar di modul ini tidak dicatat di tabel `media`, jadi siklus hidupnya
+ * ditentukan sepenuhnya oleh isi kolom `data`: file yang tidak lagi dirujuk
+ * setelah PATCH dihapus dari storage, begitu juga file yang terlanjur naik
+ * pada request yang akhirnya ditolak.
  */
 export class PageService {
   constructor(
@@ -112,6 +160,7 @@ export class PageService {
   private async uploadFiles(
     keys: string[],
     files: PageFile[],
+    uploadedKeys: string[],
   ): Promise<Map<string, string>> {
     // Jumlah key dan file harus sama persis — kalau tidak, pasangannya ambigu.
     if (keys.length !== files.length) {
@@ -156,33 +205,114 @@ export class PageService {
         fileName,
         contentType: detected.mime,
         body,
-        folderPrefix: "pages",
+        folderPrefix: PAGE_FOLDER_PREFIX,
       });
+      // Dicatat segera setelah naik: kalau file berikutnya gagal validasi,
+      // yang ini harus ikut dibuang.
+      uploadedKeys.push(uploaded.objectKey);
       result.set(key, buildMediaUrl(uploaded.objectKey));
     }
     return result;
   }
 
-  /** Parse `data`, upload file, lalu ganti seluruh placeholder "@file:<key>" di dalamnya. */
+  /**
+   * Parse `data`, upload file, lalu ganti seluruh placeholder "@file:<key>".
+   * `uploadedKeys` berisi objectKey yang berhasil naik — pemanggil wajib
+   * membuangnya lewat `discardUploads` kalau request gagal sebelum tersimpan.
+   */
   private async resolveData(
     rawData: string,
     fileKeys: string[],
     files: PageFile[],
-  ): Promise<unknown> {
+  ): Promise<{ resolved: unknown; uploadedKeys: string[] }> {
     const parsed = this.parseData(rawData);
-    const urls = await this.uploadFiles(fileKeys, files);
+    const uploadedKeys: string[] = [];
 
-    const usedKeys = new Set<string>();
-    const resolved = resolvePlaceholders(parsed, urls, usedKeys);
+    try {
+      const urls = await this.uploadFiles(fileKeys, files, uploadedKeys);
 
-    const unused = [...urls.keys()].filter((key) => !usedKeys.has(key));
-    if (unused.length > 0) {
-      throw new BadRequestError(
-        `file key(s) not referenced in \`data\`: ${unused.join(", ")}`,
-      );
+      const usedKeys = new Set<string>();
+      const resolved = resolvePlaceholders(parsed, urls, usedKeys);
+
+      const unused = [...urls.keys()].filter((key) => !usedKeys.has(key));
+      if (unused.length > 0) {
+        throw new BadRequestError(
+          `file key(s) not referenced in \`data\`: ${unused.join(", ")}`,
+        );
+      }
+
+      return { resolved, uploadedKeys };
+    } catch (err) {
+      // Validasi gagal setelah sebagian file terlanjur naik — buang lagi
+      // supaya request yang ditolak tidak meninggalkan file yatim.
+      await this.discardUploads(uploadedKeys);
+      throw err;
+    }
+  }
+
+  /**
+   * Buang file yang terlanjur ter-upload pada request yang gagal. Best effort:
+   * kegagalan storage hanya di-log supaya tidak menutupi error asli yang
+   * sedang dilempar.
+   */
+  private async discardUploads(objectKeys: string[]): Promise<void> {
+    for (const objectKey of objectKeys) {
+      try {
+        await this.fileService.deleteFile(objectKey);
+      } catch (err) {
+        logger.warn({ err, objectKey }, "failed to discard uploaded page file");
+      }
+    }
+  }
+
+  /**
+   * Hapus gambar yang tidak lagi dirujuk `data` setelah PATCH berhasil —
+   * inilah yang membuat "ganti gambar" dan "hapus gambar" tidak menyisakan
+   * file yatim. Dua penjaga sebelum sebuah file benar-benar dihapus:
+   *
+   * 1. Key masih dipakai section lain → biarkan.
+   * 2. Key tercatat di tabel `media` → itu file Media Library yang URL-nya
+   *    kebetulan ditempel ke `data`, bukan milik modul ini → biarkan.
+   */
+  private async deleteUnreferencedFiles(
+    pageId: string,
+    oldData: unknown,
+    newData: unknown,
+  ): Promise<void> {
+    const oldKeys = new Set<string>();
+    collectPageObjectKeys(oldData, oldKeys);
+    const newKeys = new Set<string>();
+    collectPageObjectKeys(newData, newKeys);
+
+    const candidates = [...oldKeys].filter((key) => !newKeys.has(key));
+    if (candidates.length === 0) {
+      return;
     }
 
-    return resolved;
+    const stillUsed = new Set<string>();
+    for (const data of await this.repo.listDataExcept(pageId)) {
+      collectPageObjectKeys(data, stillUsed);
+    }
+    for (const key of await this.repo.findMediaObjectKeys(candidates)) {
+      stillUsed.add(key);
+    }
+
+    for (const objectKey of candidates) {
+      if (stillUsed.has(objectKey)) {
+        continue;
+      }
+      try {
+        await this.fileService.deleteFile(objectKey);
+      } catch (err) {
+        // Baris DB sudah tersimpan dan itu sumber kebenarannya; kegagalan
+        // hapus file tidak boleh menggagalkan request. Key ikut di-log supaya
+        // sisanya bisa dibereskan manual.
+        logger.warn(
+          { err, pageId, objectKey },
+          "failed to delete unreferenced page file",
+        );
+      }
+    }
   }
 
   async listPages(filter: ListPagesFilter): Promise<Page[]> {
@@ -207,23 +337,31 @@ export class PageService {
       throw new BadRequestError("`section` must not be empty");
     }
 
-    const resolved = await this.resolveData(
-      input.data,
-      input.fileKeys,
-      input.files,
-    );
-
+    // Cek duplikat sebelum upload supaya kasus 409 tidak perlu menaikkan file
+    // sama sekali. Insert tetap dibungkus try/catch untuk sisa kasusnya.
     const existing = await this.repo.findByPageSection(page, section);
     if (existing) {
       throw new ConflictError("page section already exists");
     }
 
-    const created = await this.repo.create({
-      page,
-      section,
-      data: resolved,
-      status: input.status,
-    });
+    const { resolved, uploadedKeys } = await this.resolveData(
+      input.data,
+      input.fileKeys,
+      input.files,
+    );
+
+    let created: Page;
+    try {
+      created = await this.repo.create({
+        page,
+        section,
+        data: resolved,
+        status: input.status,
+      });
+    } catch (err) {
+      await this.discardUploads(uploadedKeys);
+      throw err;
+    }
 
     logger.info({ pageId: created.id, page, section }, "page section created");
     return created;
@@ -258,15 +396,9 @@ export class PageService {
     if (input.status !== undefined) {
       patch.status = input.status;
     }
-    if (input.data !== undefined) {
-      // Hasilnya menggantikan seluruh isi kolom `data`, bukan di-merge.
-      patch.data = await this.resolveData(
-        input.data,
-        input.fileKeys ?? [],
-        input.files ?? [],
-      );
-    }
 
+    // Semua pemeriksaan yang tidak menyentuh storage dijalankan lebih dulu,
+    // supaya request yang pasti ditolak tidak sempat menaikkan file.
     const nextPage = patch.page ?? existing.page;
     const nextSection = patch.section ?? existing.section;
     if (nextPage !== existing.page || nextSection !== existing.section) {
@@ -282,11 +414,36 @@ export class PageService {
 
     // Body kosong → tidak ada yang perlu ditulis, jangan sentuh DB sama
     // sekali supaya updatedAt tidak ikut berubah tanpa alasan.
-    if (Object.keys(patch).length === 0) {
+    if (input.data === undefined && Object.keys(patch).length === 0) {
       return existing;
     }
 
-    const updated = await this.repo.update(id, patch);
+    let uploadedKeys: string[] = [];
+    if (input.data !== undefined) {
+      // Hasilnya menggantikan seluruh isi kolom `data`, bukan di-merge.
+      const result = await this.resolveData(
+        input.data,
+        input.fileKeys ?? [],
+        input.files ?? [],
+      );
+      patch.data = result.resolved;
+      uploadedKeys = result.uploadedKeys;
+    }
+
+    let updated: Page;
+    try {
+      updated = await this.repo.update(id, patch);
+    } catch (err) {
+      await this.discardUploads(uploadedKeys);
+      throw err;
+    }
+
+    // Baru setelah `data` yang baru aman tersimpan, gambar lama yang tidak
+    // lagi dirujuk boleh dibuang.
+    if (input.data !== undefined) {
+      await this.deleteUnreferencedFiles(id, existing.data, patch.data);
+    }
+
     logger.info(
       { pageId: id, fields: Object.keys(patch) },
       "page section updated",
