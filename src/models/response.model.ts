@@ -126,6 +126,22 @@ export const careInstructionModel = t.Object({
   ...auditColumns,
 });
 
+// ---- Pages ----
+
+/**
+ * Bentuk response pages untuk dashboard admin. Beda dari `publicPageModel`
+ * (public-response.model.ts) yang sengaja tidak membocorkan `status`.
+ */
+export const pageModel = t.Object({
+  id: t.String(),
+  page: t.String(),
+  section: t.String(),
+  // JSON bebas — tidak divalidasi skema tetap, sama seperti kolom DB-nya.
+  data: t.Unknown(),
+  status: t.String(),
+  ...auditColumns,
+});
+
 /** Ringkasan color yang di-nest di dalam finish (GET /api/finishes). */
 export const finishColorModel = t.Object({
   id: t.String(),

@@ -24,6 +24,7 @@ import { JobRoute } from "./routes/job.route";
 import { MarketplaceRoute } from "./routes/marketplace.route";
 import { MediaRoute } from "./routes/media.route";
 import { OrderSalesRoute } from "./routes/order-sales.route";
+import { PageRoute } from "./routes/page.route";
 import { PermissionRoute } from "./routes/permission.route";
 import { PointOfSaleRoute } from "./routes/point-of-sale.route";
 import { ProductRoute } from "./routes/product.route";
@@ -85,6 +86,7 @@ const adminApi = new Elysia({ prefix: "/admin" })
   .use(JobRoute)
   .use(ApplicantRoute)
   .use(InquiryRoute)
+  .use(PageRoute)
   .use(DashboardRoute);
 
 // Endpoint storefront (website publik). Terpisah dari adminApi: tidak
