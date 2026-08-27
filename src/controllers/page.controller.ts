@@ -7,12 +7,23 @@ import type { PageService } from "../services/page.service";
 
 const MAX_PAGE_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
 
+// JSON dikirim sebagai string karena body-nya multipart/form-data, TAPI parser
+// form-data Elysia otomatis mem-`JSON.parse` nilai yang diawali "{" atau "["
+// sebelum validasi jalan (`adapter/web-standard/index.js`), dan itu di-codegen
+// tanpa opsi untuk dimatikan. Jadi hasil `JSON.stringify` dari klien sampai
+// ke sini sudah berupa objek/array, bukan string. Union ini menerima ketiga
+// bentuk yang mungkin; `toDataString` mengembalikannya jadi string sebelum
+// masuk service, yang tetap jadi tempat parsing & validasi isinya.
+const dataField = t.Union([
+  t.String({ minLength: 1 }),
+  t.Record(t.String(), t.Unknown()),
+  t.Array(t.Unknown()),
+]);
+
 const pageBody = t.Object({
   page: t.String({ minLength: 1, maxLength: 50 }),
   section: t.String({ minLength: 1, maxLength: 50 }),
-  // JSON dikirim sebagai string karena body-nya multipart/form-data —
-  // parsing & validasinya dilakukan di service.
-  data: t.String({ minLength: 1 }),
+  data: dataField,
   status: t.Union([t.Literal("draft"), t.Literal("published")]),
   files: t.Optional(t.Files({ maxSize: MAX_PAGE_IMAGE_BYTES })),
   // Sejajar per index dengan `files`. Kalau kirim 1 field saja, Elysia
@@ -38,6 +49,16 @@ function normalizeFiles(files: File | File[] | undefined): File[] {
     return [];
   }
   return Array.isArray(files) ? files : [files];
+}
+
+/**
+ * Kembalikan `data` ke bentuk string apa pun yang diberikan parser form-data:
+ * string dibiarkan (termasuk yang JSON-nya tidak valid, supaya pesan error
+ * "`data` is not valid JSON" dari service tetap muncul), objek/array
+ * di-stringify ulang.
+ */
+function toDataString(data: string | Record<string, unknown> | unknown[]) {
+  return typeof data === "string" ? data : JSON.stringify(data);
 }
 
 function normalizeFileKeys(fileKeys: string | string[] | undefined): string[] {
@@ -75,7 +96,7 @@ export const PageController = (service: PageService) =>
         const data = await service.createPage({
           page: body.page,
           section: body.section,
-          data: body.data,
+          data: toDataString(body.data),
           status: body.status,
           files: await toPageFiles(files),
           fileKeys,
@@ -126,7 +147,7 @@ export const PageController = (service: PageService) =>
         const data = await service.updatePage(params.id, {
           page: body.page,
           section: body.section,
-          data: body.data,
+          data: body.data === undefined ? undefined : toDataString(body.data),
           status: body.status,
           files: await toPageFiles(files),
           fileKeys,
