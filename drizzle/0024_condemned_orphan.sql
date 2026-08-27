@@ -1,0 +1,1 @@
+ALTER TABLE "applicants" ALTER COLUMN "phone" SET NOT NULL;

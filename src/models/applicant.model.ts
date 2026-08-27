@@ -14,6 +14,9 @@ export const applicants = pgTable("applicants", {
     .$defaultFn(() => Bun.randomUUIDv7()),
   name: varchar("name", { length: 255 }).notNull(),
   email: varchar("email", { length: 255 }).notNull(),
+  // Putaran B (lihat issue #98 §5.3): backfill sudah selesai
+  // (scripts/backfill-applicant-phone.ts), semua baris lama sudah punya phone.
+  phone: varchar("phone", { length: 20 }).notNull(),
   applicantDescription: text("applicant_description"),
   jobsId: uuid("jobs_id").references(() => jobs.id),
   cv: uuid("cv").references(() => externalAttachments.id),

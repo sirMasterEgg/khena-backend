@@ -2,6 +2,7 @@ import type { CategoryRepository } from "../repositories/category.repository";
 import type { RoomTypeRepository } from "../repositories/room-type.repository";
 import { NotFoundError } from "../utils/errors";
 import { logger } from "../utils/logger";
+import { generateUniqueSlug } from "../utils/slug";
 
 type CategorySort = "name" | "displayOrder" | "roomType" | "createdAt";
 
@@ -42,11 +43,15 @@ export class CategoryService {
     if (!roomType) {
       throw new NotFoundError("room type not found");
     }
+    const slug = await generateUniqueSlug(input.category, (candidate) =>
+      this.categoryRepo.slugExists(candidate),
+    );
     const created = await this.categoryRepo.create({
       category: input.category,
       order: input.order,
       roomTypeId: input.roomTypeId,
       status: input.status,
+      slug,
     });
     logger.info({ categoryId: created.id }, "category created");
     return created;
@@ -112,11 +117,20 @@ export class CategoryService {
     if (!roomType) {
       throw new NotFoundError("room type not found");
     }
+    // Regenerate slug hanya kalau nama berubah — nama sama tidak perlu
+    // cek ulang keunikan (lihat issue #98 §4.4).
+    const slug =
+      input.category === existing.category
+        ? existing.slug
+        : await generateUniqueSlug(input.category, (candidate) =>
+            this.categoryRepo.slugExists(candidate, id),
+          );
     const updated = await this.categoryRepo.update(id, {
       category: input.category,
       order: input.order,
       roomTypeId: input.roomTypeId,
       status: input.status,
+      slug,
     });
     logger.info({ categoryId: id }, "category updated");
     return updated;

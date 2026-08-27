@@ -24,9 +24,17 @@ import { JobRoute } from "./routes/job.route";
 import { MarketplaceRoute } from "./routes/marketplace.route";
 import { MediaRoute } from "./routes/media.route";
 import { OrderSalesRoute } from "./routes/order-sales.route";
+import { PageRoute } from "./routes/page.route";
 import { PermissionRoute } from "./routes/permission.route";
 import { PointOfSaleRoute } from "./routes/point-of-sale.route";
 import { ProductRoute } from "./routes/product.route";
+import { PublicCareerRoute } from "./routes/public-career.route";
+import { PublicCategoryRoute } from "./routes/public-category.route";
+import { PublicCollectionRoute } from "./routes/public-collection.route";
+import { PublicInquiryRoute } from "./routes/public-inquiry.route";
+import { PublicPageRoute } from "./routes/public-page.route";
+import { PublicProductRoute } from "./routes/public-product.route";
+import { PublicWishlistRoute } from "./routes/public-wishlist.route";
 import { PurchaseOrderRoute } from "./routes/purchase-order.route";
 import { RoleRoute } from "./routes/role.route";
 import { RoomTypeRoute } from "./routes/room-type.route";
@@ -78,7 +86,20 @@ const adminApi = new Elysia({ prefix: "/admin" })
   .use(JobRoute)
   .use(ApplicantRoute)
   .use(InquiryRoute)
+  .use(PageRoute)
   .use(DashboardRoute);
+
+// Endpoint storefront (website publik). Terpisah dari adminApi: tidak
+// memakai authPlugin/csrfPlugin milik administrator, dan wishlist butuh
+// sesi better-auth lewat userSessionPlugin sendiri (lihat issue #98 §13.1).
+const publicApi = new Elysia()
+  .use(PublicPageRoute)
+  .use(PublicCategoryRoute)
+  .use(PublicProductRoute)
+  .use(PublicCollectionRoute)
+  .use(PublicWishlistRoute)
+  .use(PublicInquiryRoute)
+  .use(PublicCareerRoute);
 
 const app = new Elysia({ prefix: "/api" })
   .use(
@@ -132,6 +153,7 @@ const app = new Elysia({ prefix: "/api" })
   })
   .get("/health", () => ({ status: "ok" }))
   .use(userAuthPlugin)
+  .use(publicApi)
   .use(adminApi);
 
 app.listen(port, () => {
