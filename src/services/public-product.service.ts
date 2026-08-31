@@ -39,17 +39,20 @@ export class PublicProductService {
     };
   }
 
-  async getProductDetail(id: string) {
-    const product = await this.repo.findPublishedById(id);
+  async getProductDetail(sku: string) {
+    const product = await this.repo.findPublishedByBaseSku(sku);
     if (!product) {
       throw new NotFoundError("product not found");
     }
 
+    // Query turunan tetap pakai uuid produk — hanya pencarian produknya yang by SKU.
+    const productId = product.id;
+
     const [careInstructionTexts, showcaseObjectKeys, variantRows] =
       await Promise.all([
-        this.repo.findCareInstructionTextsByProductId(id),
-        this.repo.findShowcaseObjectKeysByProductId(id),
-        this.repo.findVariantsByProductId(id),
+        this.repo.findCareInstructionTextsByProductId(productId),
+        this.repo.findShowcaseObjectKeysByProductId(productId),
+        this.repo.findVariantsByProductId(productId),
       ]);
 
     const variantIds = variantRows.map((v) => v.id);
@@ -129,11 +132,13 @@ export class PublicProductService {
     };
   }
 
-  async getRelatedProducts(productId: string) {
-    const product = await this.repo.findPublishedById(productId);
+  async getRelatedProducts(sku: string) {
+    const product = await this.repo.findPublishedByBaseSku(sku);
     if (!product) {
       throw new NotFoundError("product not found");
     }
+
+    const productId = product.id;
 
     const collectionIds =
       await this.repo.findCollectionIdsByProductId(productId);

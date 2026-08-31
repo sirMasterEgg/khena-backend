@@ -142,13 +142,22 @@ export class PublicProductRepository {
 
   // ---- detail ----
 
-  async findPublishedById(id: string) {
+  /**
+   * `:sku` di endpoint produk publik selalu products.base_sku (SKU produk),
+   * bukan detail_products.detail_product_sku (SKU varian) — aturan yang sama
+   * dipakai endpoint wishlist, lihat public-wishlist.repository.ts.
+   *
+   * Kondisi `deletedAt is null` wajib ikut: unique index base_sku hanya
+   * berlaku untuk baris aktif, jadi SKU bekas baris ter-soft-delete boleh
+   * dipakai ulang dan tanpa filter itu hasilnya bisa lebih dari satu baris.
+   */
+  async findPublishedByBaseSku(sku: string) {
     const result = await db
       .select()
       .from(products)
       .where(
         and(
-          eq(products.id, id),
+          eq(products.baseSku, sku),
           isNull(products.deletedAt),
           eq(products.status, "published"),
         ),
