@@ -44,8 +44,24 @@ export class PublicProductService {
     if (!product) {
       throw new NotFoundError("product not found");
     }
+    return this.buildProductDetail(product);
+  }
 
-    // Query turunan tetap pakai uuid produk — hanya pencarian produknya yang by SKU.
+  /** Sama seperti getProductDetail, tapi mencari produk lewat uuid, bukan SKU. */
+  async getProductDetailById(id: string) {
+    const product = await this.repo.findPublishedById(id);
+    if (!product) {
+      throw new NotFoundError("product not found");
+    }
+    return this.buildProductDetail(product);
+  }
+
+  private async buildProductDetail(
+    product: NonNullable<
+      Awaited<ReturnType<PublicProductRepository["findPublishedByBaseSku"]>>
+    >,
+  ) {
+    // Query turunan tetap pakai uuid produk — hanya pencarian produknya yang by SKU/id.
     const productId = product.id;
 
     const [careInstructionTexts, showcaseObjectKeys, variantRows] =

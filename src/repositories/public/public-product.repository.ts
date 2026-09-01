@@ -166,6 +166,22 @@ export class PublicProductRepository {
     return result[0];
   }
 
+  /** Lookup by uuid produk — dipakai `GET /api/products/id/:id`, di luar alur SKU utama. */
+  async findPublishedById(id: string) {
+    const result = await db
+      .select()
+      .from(products)
+      .where(
+        and(
+          eq(products.id, id),
+          isNull(products.deletedAt),
+          eq(products.status, "published"),
+        ),
+      )
+      .limit(1);
+    return result[0];
+  }
+
   async findMediaObjectKeysByIds(ids: string[]): Promise<Map<string, string>> {
     if (ids.length === 0) {
       return new Map();

@@ -21,6 +21,7 @@ const listQuery = t.Object({
 });
 
 const skuParams = t.Object({ sku: t.String({ minLength: 1 }) });
+const idParams = t.Object({ id: t.String({ minLength: 1 }) });
 
 export const PublicProductController = (service: PublicProductService) =>
   new Elysia({ prefix: "/products" })
@@ -41,6 +42,20 @@ export const PublicProductController = (service: PublicProductService) =>
         query: listQuery,
         response: {
           200: listEnvelope(productSummaryModel),
+          ...publicErrorResponses,
+        },
+      },
+    )
+    .get(
+      "/id/:id",
+      async ({ params }) => {
+        const data = await service.getProductDetailById(params.id);
+        return { data };
+      },
+      {
+        params: idParams,
+        response: {
+          200: dataEnvelope(publicProductDetailModel),
           ...publicErrorResponses,
         },
       },
