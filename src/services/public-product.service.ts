@@ -72,8 +72,10 @@ export class PublicProductService {
       ]);
 
     const variantIds = variantRows.map((v) => v.id);
-    const stockByVariantId =
-      await this.repo.findStockTotalsByDetailProductIds(variantIds);
+    const [stockByVariantId, imagesByVariantId] = await Promise.all([
+      this.repo.findStockTotalsByDetailProductIds(variantIds),
+      this.repo.findImageObjectKeysByDetailProductIds(variantIds),
+    ]);
 
     const dimensionMediaIds = [
       product.productDimensionMediaId,
@@ -131,7 +133,7 @@ export class PublicProductService {
         return {
           id: v.id,
           sku: v.sku,
-          image: v.imageObjectKey ? buildMediaUrl(v.imageObjectKey) : null,
+          images: (imagesByVariantId.get(v.id) ?? []).map(buildMediaUrl),
           color: {
             id: v.colorId ?? "",
             name: v.colorName ?? "",

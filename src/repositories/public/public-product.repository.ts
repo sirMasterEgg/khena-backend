@@ -18,6 +18,7 @@ import { collections, productCollections } from "../../models/collection.model";
 import { colors } from "../../models/color.model";
 import { media } from "../../models/media.model";
 import {
+  detailProductImages,
   detailProducts,
   productMediaShowcase,
   products,
@@ -230,13 +231,6 @@ export class PublicProductRepository {
         colorId: colors.id,
         colorName: colors.name,
         colorHexCode: colors.hexCode,
-        imageObjectKey: sql<string | null>`(
-          select m.object_key from detail_product_images dpi
-          join media m on m.id = dpi.media_id
-          where dpi.detail_product_id = ${detailProducts.id}
-          order by dpi."order" asc
-          limit 1
-        )`,
       })
       .from(detailProducts)
       .leftJoin(colors, eq(detailProducts.colorId, colors.id))
@@ -248,6 +242,37 @@ export class PublicProductRepository {
         ),
       )
       .orderBy(asc(detailProducts.createdAt), asc(detailProducts.id));
+  }
+
+  /** Seluruh gambar tiap varian (urutan `order`), dikelompokkan per detail_product_id. */
+  async findImageObjectKeysByDetailProductIds(
+    detailProductIds: string[],
+  ): Promise<Map<string, string[]>> {
+    if (detailProductIds.length === 0) {
+      return new Map();
+    }
+    const rows = await db
+      .select({
+        detailProductId: detailProductImages.detailProductId,
+        objectKey: media.objectKey,
+      })
+      .from(detailProductImages)
+      .innerJoin(media, eq(detailProductImages.mediaId, media.id))
+      .where(
+        and(
+          inArray(detailProductImages.detailProductId, detailProductIds),
+          isNull(detailProductImages.deletedAt),
+        ),
+      )
+      .orderBy(asc(detailProductImages.order));
+
+    const map = new Map<string, string[]>();
+    for (const row of rows) {
+      const objectKeys = map.get(row.detailProductId) ?? [];
+      objectKeys.push(row.objectKey);
+      map.set(row.detailProductId, objectKeys);
+    }
+    return map;
   }
 
   /** Stok semua varian sekaligus (satu query agregat, bukan per varian). */

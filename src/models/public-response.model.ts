@@ -67,7 +67,7 @@ const publicVariantColorModel = t.Object({
 const publicProductVariantModel = t.Object({
   id: t.String(),
   sku: t.String(),
-  image: nullableString,
+  images: t.Array(t.String()),
   color: publicVariantColorModel,
   price: t.Number(),
   discountPercent: t.Number(),
