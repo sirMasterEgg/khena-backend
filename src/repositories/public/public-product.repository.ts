@@ -204,7 +204,12 @@ export class PublicProductRepository {
         careInstructions,
         eq(productCareInstructions.careInstructionId, careInstructions.id),
       )
-      .where(eq(productCareInstructions.productId, productId));
+      .where(
+        and(
+          eq(productCareInstructions.productId, productId),
+          isNull(productCareInstructions.deletedAt),
+        ),
+      );
     return rows.map((r) => r.instruction);
   }
 
