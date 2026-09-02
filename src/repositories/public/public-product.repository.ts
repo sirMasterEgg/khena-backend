@@ -220,7 +220,12 @@ export class PublicProductRepository {
       .select({ objectKey: media.objectKey })
       .from(productMediaShowcase)
       .innerJoin(media, eq(productMediaShowcase.mediaId, media.id))
-      .where(eq(productMediaShowcase.productId, productId))
+      .where(
+        and(
+          eq(productMediaShowcase.productId, productId),
+          isNull(productMediaShowcase.deletedAt),
+        ),
+      )
       .orderBy(asc(productMediaShowcase.order));
     return rows.map((r) => r.objectKey);
   }
