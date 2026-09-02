@@ -241,9 +241,11 @@ export class PublicProductRepository {
         colorId: colors.id,
         colorName: colors.name,
         colorHexCode: colors.hexCode,
+        colorSwatchObjectKey: media.objectKey,
       })
       .from(detailProducts)
       .leftJoin(colors, eq(detailProducts.colorId, colors.id))
+      .leftJoin(media, eq(colors.swatchPhoto, media.id))
       .where(
         and(
           eq(detailProducts.productId, productId),

@@ -137,7 +137,10 @@ export class PublicProductService {
           color: {
             id: v.colorId ?? "",
             name: v.colorName ?? "",
-            hexCode: v.colorHexCode ?? "",
+            hexCode: v.colorHexCode ? `#${v.colorHexCode}` : "",
+            swatch: v.colorSwatchObjectKey
+              ? buildMediaUrl(v.colorSwatchObjectKey)
+              : null,
           },
           price,
           discountPercent,

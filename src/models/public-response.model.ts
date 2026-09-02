@@ -61,7 +61,8 @@ const publicDimensionModel = t.Object({
 const publicVariantColorModel = t.Object({
   id: t.String(),
   name: t.String(),
-  hexCode: t.String(),
+  hexCode: t.String(), // diawali "#", mis. "#B91C1C"
+  swatch: nullableString,
 });
 
 const publicProductVariantModel = t.Object({
