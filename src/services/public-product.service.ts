@@ -1,7 +1,10 @@
 import type { PublicProductRepository } from "../repositories/public/public-product.repository";
 import { NotFoundError } from "../utils/errors";
 import { buildMediaUrl } from "../utils/media-url";
-import { toProductSummary } from "./public/product-summary.mapper";
+import {
+  grossUpPrice,
+  toProductSummary,
+} from "./public/product-summary.mapper";
 
 const RELATED_PRODUCTS_LIMIT = 8;
 
@@ -128,8 +131,11 @@ export class PublicProductService {
       },
       media: showcaseObjectKeys.map(buildMediaUrl),
       variants: variantRows.map((v) => {
-        const price = v.price ?? 0;
+        // detailProducts.price di DB sudah harga setelah diskon (dibayar
+        // customer) — lihat grossUpPrice() di product-summary.mapper.ts.
+        const priceAfterDiscount = v.price ?? 0;
         const discountPercent = v.discountPercent ?? 0;
+        const price = grossUpPrice(priceAfterDiscount, discountPercent);
         return {
           id: v.id,
           sku: v.sku,
@@ -144,9 +150,7 @@ export class PublicProductService {
           },
           price,
           discountPercent,
-          priceAfterDiscount: Math.round(
-            (price * (100 - discountPercent)) / 100,
-          ),
+          priceAfterDiscount,
           stock: stockByVariantId.get(v.id) ?? 0,
         };
       }),

@@ -57,10 +57,6 @@ export interface ProductSummaryQueryRow {
   stock: number | string | null;
 }
 
-// Ekspresi harga setelah diskon, dipakai untuk sort=price (§8.1) — angka
-// yang sama yang dilihat user di kartu produk.
-const priceAfterDiscountExpr = sql<number>`round(${detailProducts.price} * (100 - coalesce(${detailProducts.discountPercent}, 0)) / 100.0)`;
-
 function collectionExistsCondition(slug: string): SQL {
   return sql`exists (
     select 1 from product_collections pc
@@ -110,8 +106,11 @@ export class PublicProductRepository {
     }
     const where = and(...conditions);
 
+    // detailProducts.price di DB sudah harga setelah diskon (lihat
+    // grossUpPrice() di product-summary.mapper.ts), jadi sort=price cukup
+    // urut langsung dari kolomnya — tidak perlu hitung ulang diskonnya.
     const orderExpr =
-      filter.sort === "price" ? priceAfterDiscountExpr : products.name;
+      filter.sort === "price" ? detailProducts.price : products.name;
     const orderBy =
       filter.orderDir === "asc" ? asc(orderExpr) : desc(orderExpr);
 
