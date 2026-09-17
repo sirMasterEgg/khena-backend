@@ -1,6 +1,5 @@
 import { stringify } from "csv-stringify/sync";
 import { COMPANY_INFO } from "../config/company.config";
-import { SHIPPING_FALLBACK_WEIGHT_KG } from "../config/shipping.config";
 import type { CustomerRepository } from "../repositories/customer.repository";
 import type {
   ActiveVariantRow,
@@ -14,8 +13,9 @@ import { db, type Tx } from "../utils/db";
 import { BadRequestError, NotFoundError } from "../utils/errors";
 import { logger } from "../utils/logger";
 import { buildMediaUrl } from "../utils/media-url";
-import type { BiteshipService, ShippingItemInput } from "./biteship.service";
+import type { BiteshipService } from "./biteship.service";
 import type { CustomerService } from "./customer.service";
+import { itemWeightKg, toShippingItems } from "./shipping-helpers";
 
 /** Nama tampilan varian, konsisten dengan modul POS & Order Sales. */
 function variantName(productName: string, colorName: string): string {
@@ -150,16 +150,6 @@ export class OrderSalesService {
     return imageMap;
   }
 
-  /** Berat per unit (kg): box → produk → fallback konstanta. */
-  private itemWeightKg(item: {
-    boxWeightKg: number | null;
-    productWeightKg: number | null;
-  }): number {
-    return (
-      item.boxWeightKg ?? item.productWeightKg ?? SHIPPING_FALLBACK_WEIGHT_KG
-    );
-  }
-
   /**
    * Format SO-YYYYMM-NNNN, counter reset tiap bulan. Dipanggil DI DALAM
    * transaksi supaya nomor tidak bentrok antar-request.
@@ -185,19 +175,15 @@ export class OrderSalesService {
     items: OrderSalesItemInput[];
   }): Promise<number> {
     const variantMap = new Map(params.variants.map((v) => [v.id, v]));
-    const shippingItems: ShippingItemInput[] = params.items.map((item) => {
-      const variant = variantMap.get(item.detailProductId);
-      if (!variant) {
-        throw new Error("variant snapshot missing for validated product");
-      }
-      const weightKg = this.itemWeightKg(variant);
-      return {
-        sku: variant.sku,
-        price: variant.price,
-        weightGram: weightKg * 1000,
-        quantity: item.quantity,
-      };
-    });
+    const shippingItems = toShippingItems(
+      params.items.map((item) => {
+        const variant = variantMap.get(item.detailProductId);
+        if (!variant) {
+          throw new Error("variant snapshot missing for validated product");
+        }
+        return { variant, quantity: item.quantity };
+      }),
+    );
 
     return await this.biteship.getCheapestRate({
       destinationPostalCode: params.zipCode,
@@ -488,6 +474,7 @@ export class OrderSalesService {
         },
         total: row.total,
         status: row.status,
+        paymentStatus: row.paymentStatus,
       };
     });
 
@@ -503,7 +490,10 @@ export class OrderSalesService {
     if (!order) {
       throw new NotFoundError("order not found");
     }
-    if (!order.customerId) {
+    // Order sales manual selalu punya customer (lihat createOrder). Order
+    // online boleh guest (customerId null) — tampilkan data buyer sebagai
+    // gantinya, bukan ditolak.
+    if (!order.customerId && order.createdVia !== "online") {
       throw new NotFoundError("order not found");
     }
 
@@ -521,13 +511,21 @@ export class OrderSalesService {
       id: order.id,
       invoiceNumber: order.invoiceNumber,
       date: order.orderDate,
-      customer: {
-        id: order.customerId,
-        name: order.customerName ?? "",
-        email: order.customerEmail ?? "",
-        phone: order.customerPhone ?? "",
-        totalSpend: order.customerTotalSpend,
-      },
+      customer: order.customerId
+        ? {
+            id: order.customerId,
+            name: order.customerName ?? "",
+            email: order.customerEmail ?? "",
+            phone: order.customerPhone ?? "",
+            totalSpend: order.customerTotalSpend,
+          }
+        : {
+            id: null,
+            name: order.buyerName ?? "",
+            email: order.buyerEmail ?? "",
+            phone: order.buyerPhone ?? "",
+            totalSpend: 0,
+          },
       shipping: {
         address: order.shippingAddress,
         city: order.shippingCity,
@@ -558,6 +556,10 @@ export class OrderSalesService {
             deliveryNotes: order.deliveryNotes,
           }
         : null,
+      payment:
+        order.createdVia === "online"
+          ? { status: order.paymentStatus, paidAt: order.paidAt }
+          : null,
     };
   }
 
@@ -593,14 +595,26 @@ export class OrderSalesService {
         `cannot change status from ${order.status} to ${input.status}`,
       );
     }
+    // Order online yang belum dibayar tidak boleh diproses lebih lanjut.
+    // Cancel tetap diizinkan — itu jalur admin membatalkan order yang gagal
+    // bayar, dan sudah generic-mengembalikan stok di bawah.
+    if (
+      order.createdVia === "online" &&
+      order.paymentStatus !== "paid" &&
+      (input.status === "processing" ||
+        input.status === "shipped" ||
+        input.status === "completed")
+    ) {
+      throw new BadRequestError("online order has not been paid");
+    }
     if (input.status === "shipped" && !input.trackingNumber) {
       throw new BadRequestError(
         "trackingNumber is required when status is shipped",
       );
     }
-    if (input.status === "completed" && !order.customerId) {
-      throw new BadRequestError("order has no customer");
-    }
+    // Order online boleh guest (customerId null) — recordCompletedOrder di
+    // bawah sudah menangani itu (skip kalau tidak ada customer), jadi status
+    // "completed" tidak perlu ditolak di sini.
     const customerId = order.customerId;
 
     await db.transaction(async (tx) => {
@@ -809,7 +823,7 @@ export class OrderSalesService {
       // dengan items.total di list order yang menghitung jenis barang.
       const totalItems = orderItems.reduce((sum, i) => sum + i.quantity, 0);
       const totalWeightGram = orderItems.reduce(
-        (sum, i) => sum + this.itemWeightKg(i) * 1000 * i.quantity,
+        (sum, i) => sum + itemWeightKg(i) * 1000 * i.quantity,
         0,
       );
 

@@ -135,6 +135,36 @@ export const publicCareerDetailModel = t.Object({
   benefits: nullableString,
 });
 
+// ---- Promo ----
+
+export const publicPromoValidationModel = t.Object({
+  code: t.String(),
+  discountType: t.String(),
+  discountValue: t.Number(),
+  subtotal: t.Number(),
+  eligibleSubtotal: t.Number(),
+  discountAmount: t.Number(),
+  freeShipping: t.Boolean(),
+});
+
+// ---- Checkout ----
+
+export const publicShippingCostModel = t.Object({
+  shippingCost: t.Number(),
+});
+
+export const publicCheckoutResultModel = t.Object({
+  orderId: t.String(),
+  invoiceNumber: t.String(),
+  subtotal: t.Number(),
+  shippingAmount: t.Number(),
+  discountAmount: t.Number(),
+  total: t.Number(),
+  paymentStatus: t.String(),
+  snapToken: t.String(),
+  redirectUrl: t.String(),
+});
+
 // ---- Simple message responses ----
 
 export const publicMessageModel = t.Object({ message: t.String() });

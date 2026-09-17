@@ -610,6 +610,9 @@ export const orderSalesListItemModel = t.Object({
   }),
   total: t.Number(),
   status: t.String(),
+  // Hanya terisi untuk order online (checkout storefront); null untuk order
+  // sales manual.
+  paymentStatus: nullableString,
 });
 
 /** Detail satu order (GET /api/order-sales/:id). */
@@ -618,7 +621,9 @@ export const orderSalesDetailModel = t.Object({
   invoiceNumber: t.String(),
   date: t.String(),
   customer: t.Object({
-    id: t.String(),
+    // null untuk checkout storefront tanpa login (guest) — name/email/phone
+    // di bawah tetap terisi dari data buyer yang diinput saat checkout.
+    id: t.Union([t.String(), t.Null()]),
     name: t.String(),
     email: t.String(),
     phone: t.String(),
@@ -658,6 +663,12 @@ export const orderSalesDetailModel = t.Object({
       timeSlot: nullableString,
       deliveryNotes: nullableString,
     }),
+    t.Null(),
+  ]),
+  // Hanya terisi untuk order online (checkout storefront); null untuk order
+  // sales manual (POS/dashboard tidak melalui Midtrans).
+  payment: t.Union([
+    t.Object({ status: nullableString, paidAt: t.Union([t.Date(), t.Null()]) }),
     t.Null(),
   ]),
 });

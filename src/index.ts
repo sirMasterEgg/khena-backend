@@ -30,10 +30,13 @@ import { PointOfSaleRoute } from "./routes/point-of-sale.route";
 import { ProductRoute } from "./routes/product.route";
 import { PublicCareerRoute } from "./routes/public-career.route";
 import { PublicCategoryRoute } from "./routes/public-category.route";
+import { PublicCheckoutRoute } from "./routes/public-checkout.route";
 import { PublicCollectionRoute } from "./routes/public-collection.route";
 import { PublicInquiryRoute } from "./routes/public-inquiry.route";
 import { PublicPageRoute } from "./routes/public-page.route";
+import { PublicPaymentRoute } from "./routes/public-payment.route";
 import { PublicProductRoute } from "./routes/public-product.route";
+import { PublicPromoRoute } from "./routes/public-promo.route";
 import { PublicWishlistRoute } from "./routes/public-wishlist.route";
 import { PurchaseOrderRoute } from "./routes/purchase-order.route";
 import { RoleRoute } from "./routes/role.route";
@@ -99,7 +102,10 @@ const publicApi = new Elysia()
   .use(PublicCollectionRoute)
   .use(PublicWishlistRoute)
   .use(PublicInquiryRoute)
-  .use(PublicCareerRoute);
+  .use(PublicCareerRoute)
+  .use(PublicPromoRoute)
+  .use(PublicCheckoutRoute)
+  .use(PublicPaymentRoute);
 
 const app = new Elysia({ prefix: "/api" })
   .use(

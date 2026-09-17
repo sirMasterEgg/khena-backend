@@ -21,4 +21,15 @@ export const userSessionPlugin = new Elysia({ name: "user-session" }).macro({
       return { user: session.user };
     },
   }),
+  // Sesi opsional — tidak pernah 401. Dipakai endpoint yang boleh diakses
+  // guest maupun user login (promo validate, checkout): `user` bertipe
+  // User | null di context route.
+  optionalUser: (_enabled: true) => ({
+    async resolve({ request }) {
+      const session = await userAuth.api.getSession({
+        headers: request.headers,
+      });
+      return { user: session?.user ?? null };
+    },
+  }),
 });
