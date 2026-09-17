@@ -23,8 +23,11 @@ const listQuery = t.Object({
 const idParams = t.Object({ id: t.String({ minLength: 1 }) });
 
 const applyBody = t.Object({
-  // jobId hanya menerima UUID — form lamaran mengirim id dari halaman detail.
-  jobId: t.String({ minLength: 1 }),
+  // jobId opsional (lamaran spontan tanpa lowongan tertentu). Kalau diisi hanya
+  // menerima UUID — form lamaran mengirim id dari halaman detail.
+  // Tidak pakai `minLength` karena form multipart lazim mengirim field kosong;
+  // string kosong diperlakukan sama dengan tidak diisi (lihat di bawah).
+  jobId: t.Optional(t.String()),
   name: t.String({ minLength: 1 }),
   email: t.String({ format: "email" }),
   phone: t.String({ minLength: 1 }),
@@ -61,8 +64,10 @@ export const PublicCareerController = (service: PublicCareerService) =>
             }
           : undefined;
 
+        const jobId = body.jobId?.trim();
+
         const data = await service.applyToCareer({
-          jobId: body.jobId,
+          jobId: jobId ? jobId : undefined,
           name: body.name,
           email: body.email,
           phone: body.phone,

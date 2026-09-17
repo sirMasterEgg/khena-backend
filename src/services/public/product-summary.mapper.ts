@@ -33,6 +33,25 @@ export interface ProductSummary {
 }
 
 /**
+ * `detail_products.price` di DB SUDAH harga setelah diskon (harga yang
+ * dibayar customer) — `discountPercent` cuma metadata persentase, bukan
+ * pengali yang perlu diterapkan lagi. `price` di response publik adalah
+ * harga **sebelum** diskon (buat tampilan coret), di-gross-up dari harga DB:
+ * `dbPrice / (1 - discount%)`. `discountPercent >= 100` dijaga supaya tidak
+ * pembagian dengan nol/negatif — dalam kasus itu gross-up tidak bermakna,
+ * jadi `price` jatuh balik ke harga DB apa adanya.
+ */
+export function grossUpPrice(
+  discountedPrice: number,
+  discountPercent: number,
+): number {
+  if (discountPercent >= 100) {
+    return discountedPrice;
+  }
+  return Math.round((discountedPrice * 100) / (100 - discountPercent));
+}
+
+/**
  * Mapper tunggal untuk bentuk "ringkasan produk" (issue #98 §6.3) — dipakai
  * ulang oleh public-product.service, public-wishlist.service, dst, supaya
  * rumus harga & stok hanya ada di satu tempat.
@@ -41,11 +60,9 @@ export interface ProductSummary {
  * — murni transformasi baris DB → bentuk response (lihat rumus §2.1 & §2.2).
  */
 export function toProductSummary(row: ProductSummaryRow): ProductSummary {
-  const price = row.price ?? 0;
+  const priceAfterDiscount = row.price ?? 0;
   const discountPercent = row.discountPercent ?? 0;
-  const priceAfterDiscount = Math.round(
-    (price * (100 - discountPercent)) / 100,
-  );
+  const price = grossUpPrice(priceAfterDiscount, discountPercent);
 
   return {
     id: row.id,

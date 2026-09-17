@@ -44,6 +44,7 @@ export function firstImageObjectKeyExpr(
     select m.object_key from detail_product_images dpi
     join media m on m.id = dpi.media_id
     where dpi.detail_product_id = ${detailProductsTable.id}
+      and dpi.deleted_at is null
     order by dpi."order" asc
     limit 1
   )`;

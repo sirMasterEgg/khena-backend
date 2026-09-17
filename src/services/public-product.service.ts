@@ -1,7 +1,10 @@
 import type { PublicProductRepository } from "../repositories/public/public-product.repository";
 import { NotFoundError } from "../utils/errors";
 import { buildMediaUrl } from "../utils/media-url";
-import { toProductSummary } from "./public/product-summary.mapper";
+import {
+  grossUpPrice,
+  toProductSummary,
+} from "./public/product-summary.mapper";
 
 const RELATED_PRODUCTS_LIMIT = 8;
 
@@ -39,22 +42,43 @@ export class PublicProductService {
     };
   }
 
-  async getProductDetail(id: string) {
+  async getProductDetail(sku: string) {
+    const product = await this.repo.findPublishedByBaseSku(sku);
+    if (!product) {
+      throw new NotFoundError("product not found");
+    }
+    return this.buildProductDetail(product);
+  }
+
+  /** Sama seperti getProductDetail, tapi mencari produk lewat uuid, bukan SKU. */
+  async getProductDetailById(id: string) {
     const product = await this.repo.findPublishedById(id);
     if (!product) {
       throw new NotFoundError("product not found");
     }
+    return this.buildProductDetail(product);
+  }
+
+  private async buildProductDetail(
+    product: NonNullable<
+      Awaited<ReturnType<PublicProductRepository["findPublishedByBaseSku"]>>
+    >,
+  ) {
+    // Query turunan tetap pakai uuid produk — hanya pencarian produknya yang by SKU/id.
+    const productId = product.id;
 
     const [careInstructionTexts, showcaseObjectKeys, variantRows] =
       await Promise.all([
-        this.repo.findCareInstructionTextsByProductId(id),
-        this.repo.findShowcaseObjectKeysByProductId(id),
-        this.repo.findVariantsByProductId(id),
+        this.repo.findCareInstructionTextsByProductId(productId),
+        this.repo.findShowcaseObjectKeysByProductId(productId),
+        this.repo.findVariantsByProductId(productId),
       ]);
 
     const variantIds = variantRows.map((v) => v.id);
-    const stockByVariantId =
-      await this.repo.findStockTotalsByDetailProductIds(variantIds);
+    const [stockByVariantId, imagesByVariantId] = await Promise.all([
+      this.repo.findStockTotalsByDetailProductIds(variantIds),
+      this.repo.findImageObjectKeysByDetailProductIds(variantIds),
+    ]);
 
     const dimensionMediaIds = [
       product.productDimensionMediaId,
@@ -107,33 +131,39 @@ export class PublicProductService {
       },
       media: showcaseObjectKeys.map(buildMediaUrl),
       variants: variantRows.map((v) => {
-        const price = v.price ?? 0;
+        // detailProducts.price di DB sudah harga setelah diskon (dibayar
+        // customer) — lihat grossUpPrice() di product-summary.mapper.ts.
+        const priceAfterDiscount = v.price ?? 0;
         const discountPercent = v.discountPercent ?? 0;
+        const price = grossUpPrice(priceAfterDiscount, discountPercent);
         return {
           id: v.id,
           sku: v.sku,
-          image: v.imageObjectKey ? buildMediaUrl(v.imageObjectKey) : null,
+          images: (imagesByVariantId.get(v.id) ?? []).map(buildMediaUrl),
           color: {
             id: v.colorId ?? "",
             name: v.colorName ?? "",
-            hexCode: v.colorHexCode ?? "",
+            hexCode: v.colorHexCode ? `#${v.colorHexCode}` : "",
+            swatch: v.colorSwatchObjectKey
+              ? buildMediaUrl(v.colorSwatchObjectKey)
+              : null,
           },
           price,
           discountPercent,
-          priceAfterDiscount: Math.round(
-            (price * (100 - discountPercent)) / 100,
-          ),
+          priceAfterDiscount,
           stock: stockByVariantId.get(v.id) ?? 0,
         };
       }),
     };
   }
 
-  async getRelatedProducts(productId: string) {
-    const product = await this.repo.findPublishedById(productId);
+  async getRelatedProducts(sku: string) {
+    const product = await this.repo.findPublishedByBaseSku(sku);
     if (!product) {
       throw new NotFoundError("product not found");
     }
+
+    const productId = product.id;
 
     const collectionIds =
       await this.repo.findCollectionIdsByProductId(productId);

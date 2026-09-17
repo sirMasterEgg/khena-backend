@@ -20,6 +20,7 @@ const listQuery = t.Object({
   limit: t.Optional(t.Numeric({ minimum: 1 })),
 });
 
+const skuParams = t.Object({ sku: t.String({ minLength: 1 }) });
 const idParams = t.Object({ id: t.String({ minLength: 1 }) });
 
 export const PublicProductController = (service: PublicProductService) =>
@@ -46,13 +47,27 @@ export const PublicProductController = (service: PublicProductService) =>
       },
     )
     .get(
-      "/:id/related",
+      "/id/:id",
       async ({ params }) => {
-        const data = await service.getRelatedProducts(params.id);
+        const data = await service.getProductDetailById(params.id);
         return { data };
       },
       {
         params: idParams,
+        response: {
+          200: dataEnvelope(publicProductDetailModel),
+          ...publicErrorResponses,
+        },
+      },
+    )
+    .get(
+      "/:sku/related",
+      async ({ params }) => {
+        const data = await service.getRelatedProducts(params.sku);
+        return { data };
+      },
+      {
+        params: skuParams,
         response: {
           200: dataEnvelope(t.Array(productSummaryModel)),
           ...publicErrorResponses,
@@ -60,13 +75,13 @@ export const PublicProductController = (service: PublicProductService) =>
       },
     )
     .get(
-      "/:id",
+      "/:sku",
       async ({ params }) => {
-        const data = await service.getProductDetail(params.id);
+        const data = await service.getProductDetail(params.sku);
         return { data };
       },
       {
-        params: idParams,
+        params: skuParams,
         response: {
           200: dataEnvelope(publicProductDetailModel),
           ...publicErrorResponses,

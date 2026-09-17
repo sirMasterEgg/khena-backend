@@ -1,4 +1,4 @@
-import { and, asc, eq, type SQL } from "drizzle-orm";
+import { and, asc, eq, isNull, type SQL } from "drizzle-orm";
 import { pages } from "../../models/page.model";
 import { db } from "../../utils/db";
 
@@ -12,9 +12,15 @@ export class PublicPageRepository {
    * Semua section yang published, tanpa paginasi — jumlah barisnya sedikit
    * dan frontend biasanya mengambil semua section satu halaman sekaligus
    * (issue #98 §7.1).
+   *
+   * `deletedAt is null` ikut difilter untuk konsisten dengan seluruh query
+   * pages.repository.ts (admin) — lihat page.repository.ts:19,41,58,90.
    */
   async list(filter: ListPublicPagesFilter) {
-    const conditions: SQL[] = [eq(pages.status, "published")];
+    const conditions: SQL[] = [
+      eq(pages.status, "published"),
+      isNull(pages.deletedAt),
+    ];
     if (filter.page) {
       conditions.push(eq(pages.page, filter.page));
     }

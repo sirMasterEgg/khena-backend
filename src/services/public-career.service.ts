@@ -16,7 +16,7 @@ interface ApplyAttachment {
 }
 
 interface ApplyToCareerInput {
-  jobId: string;
+  jobId?: string;
   name: string;
   email: string;
   phone: string;
@@ -77,9 +77,14 @@ export class PublicCareerService {
   }
 
   async applyToCareer(input: ApplyToCareerInput): Promise<{ message: string }> {
-    const job = await this.repo.findOpenById(input.jobId);
-    if (!job) {
-      throw new NotFoundError("job not found");
+    // jobId opsional: kalau tidak diisi, lamaran masuk tanpa terikat lowongan
+    // (kolom `applicants.jobs_id` nullable, admin list sudah pakai leftJoin).
+    // Kalau diisi, lowongannya tetap wajib ada dan berstatus `open`.
+    if (input.jobId) {
+      const job = await this.repo.findOpenById(input.jobId);
+      if (!job) {
+        throw new NotFoundError("job not found");
+      }
     }
 
     const cvId = input.attachment
@@ -91,12 +96,12 @@ export class PublicCareerService {
       email: input.email,
       phone: input.phone,
       applicantDescription: input.message,
-      jobsId: input.jobId,
+      jobsId: input.jobId ?? null,
       cv: cvId,
     });
 
     logger.info(
-      { applicantId: created.id, jobId: input.jobId },
+      { applicantId: created.id, jobId: input.jobId ?? null },
       "public career application submitted",
     );
     return { message: "application sent successfully" };

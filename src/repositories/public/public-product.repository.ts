@@ -18,6 +18,7 @@ import { collections, productCollections } from "../../models/collection.model";
 import { colors } from "../../models/color.model";
 import { media } from "../../models/media.model";
 import {
+  detailProductImages,
   detailProducts,
   productMediaShowcase,
   products,
@@ -55,10 +56,6 @@ export interface ProductSummaryQueryRow {
   // toProductSummary() (services/public/product-summary.mapper.ts).
   stock: number | string | null;
 }
-
-// Ekspresi harga setelah diskon, dipakai untuk sort=price (§8.1) — angka
-// yang sama yang dilihat user di kartu produk.
-const priceAfterDiscountExpr = sql<number>`round(${detailProducts.price} * (100 - coalesce(${detailProducts.discountPercent}, 0)) / 100.0)`;
 
 function collectionExistsCondition(slug: string): SQL {
   return sql`exists (
@@ -109,8 +106,11 @@ export class PublicProductRepository {
     }
     const where = and(...conditions);
 
+    // detailProducts.price di DB sudah harga setelah diskon (lihat
+    // grossUpPrice() di product-summary.mapper.ts), jadi sort=price cukup
+    // urut langsung dari kolomnya — tidak perlu hitung ulang diskonnya.
     const orderExpr =
-      filter.sort === "price" ? priceAfterDiscountExpr : products.name;
+      filter.sort === "price" ? detailProducts.price : products.name;
     const orderBy =
       filter.orderDir === "asc" ? asc(orderExpr) : desc(orderExpr);
 
@@ -142,6 +142,31 @@ export class PublicProductRepository {
 
   // ---- detail ----
 
+  /**
+   * `:sku` di endpoint produk publik selalu products.base_sku (SKU produk),
+   * bukan detail_products.detail_product_sku (SKU varian) — aturan yang sama
+   * dipakai endpoint wishlist, lihat public-wishlist.repository.ts.
+   *
+   * Kondisi `deletedAt is null` wajib ikut: unique index base_sku hanya
+   * berlaku untuk baris aktif, jadi SKU bekas baris ter-soft-delete boleh
+   * dipakai ulang dan tanpa filter itu hasilnya bisa lebih dari satu baris.
+   */
+  async findPublishedByBaseSku(sku: string) {
+    const result = await db
+      .select()
+      .from(products)
+      .where(
+        and(
+          eq(products.baseSku, sku),
+          isNull(products.deletedAt),
+          eq(products.status, "published"),
+        ),
+      )
+      .limit(1);
+    return result[0];
+  }
+
+  /** Lookup by uuid produk — dipakai `GET /api/products/id/:id`, di luar alur SKU utama. */
   async findPublishedById(id: string) {
     const result = await db
       .select()
@@ -178,7 +203,12 @@ export class PublicProductRepository {
         careInstructions,
         eq(productCareInstructions.careInstructionId, careInstructions.id),
       )
-      .where(eq(productCareInstructions.productId, productId));
+      .where(
+        and(
+          eq(productCareInstructions.productId, productId),
+          isNull(productCareInstructions.deletedAt),
+        ),
+      );
     return rows.map((r) => r.instruction);
   }
 
@@ -189,7 +219,12 @@ export class PublicProductRepository {
       .select({ objectKey: media.objectKey })
       .from(productMediaShowcase)
       .innerJoin(media, eq(productMediaShowcase.mediaId, media.id))
-      .where(eq(productMediaShowcase.productId, productId))
+      .where(
+        and(
+          eq(productMediaShowcase.productId, productId),
+          isNull(productMediaShowcase.deletedAt),
+        ),
+      )
       .orderBy(asc(productMediaShowcase.order));
     return rows.map((r) => r.objectKey);
   }
@@ -205,16 +240,11 @@ export class PublicProductRepository {
         colorId: colors.id,
         colorName: colors.name,
         colorHexCode: colors.hexCode,
-        imageObjectKey: sql<string | null>`(
-          select m.object_key from detail_product_images dpi
-          join media m on m.id = dpi.media_id
-          where dpi.detail_product_id = ${detailProducts.id}
-          order by dpi."order" asc
-          limit 1
-        )`,
+        colorSwatchObjectKey: media.objectKey,
       })
       .from(detailProducts)
       .leftJoin(colors, eq(detailProducts.colorId, colors.id))
+      .leftJoin(media, eq(colors.swatchPhoto, media.id))
       .where(
         and(
           eq(detailProducts.productId, productId),
@@ -223,6 +253,37 @@ export class PublicProductRepository {
         ),
       )
       .orderBy(asc(detailProducts.createdAt), asc(detailProducts.id));
+  }
+
+  /** Seluruh gambar tiap varian (urutan `order`), dikelompokkan per detail_product_id. */
+  async findImageObjectKeysByDetailProductIds(
+    detailProductIds: string[],
+  ): Promise<Map<string, string[]>> {
+    if (detailProductIds.length === 0) {
+      return new Map();
+    }
+    const rows = await db
+      .select({
+        detailProductId: detailProductImages.detailProductId,
+        objectKey: media.objectKey,
+      })
+      .from(detailProductImages)
+      .innerJoin(media, eq(detailProductImages.mediaId, media.id))
+      .where(
+        and(
+          inArray(detailProductImages.detailProductId, detailProductIds),
+          isNull(detailProductImages.deletedAt),
+        ),
+      )
+      .orderBy(asc(detailProductImages.order));
+
+    const map = new Map<string, string[]>();
+    for (const row of rows) {
+      const objectKeys = map.get(row.detailProductId) ?? [];
+      objectKeys.push(row.objectKey);
+      map.set(row.detailProductId, objectKeys);
+    }
+    return map;
   }
 
   /** Stok semua varian sekaligus (satu query agregat, bukan per varian). */
