@@ -234,8 +234,8 @@ export class CustomerService {
    * jejak belanja (`customers`). Signup TIDAK memanggil ini — customer baru
    * lahir saat orangnya benar-benar bertransaksi.
    *
-   * Dipanggil saat checkout pertama sebuah akun (modul checkout belum ada di
-   * codebase ini, jadi untuk sementara method ini belum punya pemanggil).
+   * Dipanggil saat checkout pertama sebuah akun yang sedang login
+   * (lihat PublicCheckoutService.checkout, issue #104).
    *
    * Urutan klaimnya: tautan yang sudah ada → customer lama dengan email sama →
    * dengan phone sama → kalau tidak ada, bikin customer baru. Dua checkout

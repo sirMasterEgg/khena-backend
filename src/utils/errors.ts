@@ -6,7 +6,8 @@ export type ErrorCode =
   | "FORBIDDEN"
   | "VALIDATION_ERROR"
   | "INTERNAL_ERROR"
-  | "SHIPPING_ERROR";
+  | "SHIPPING_ERROR"
+  | "PAYMENT_ERROR";
 
 export class AppError extends Error {
   constructor(
@@ -54,6 +55,13 @@ export class ForbiddenError extends AppError {
 export class ShippingProviderError extends AppError {
   constructor(message = "failed to calculate shipping cost") {
     super("SHIPPING_ERROR", 502, message);
+  }
+}
+
+/** Gagal memanggil payment gateway (Midtrans): timeout, non-2xx, atau response tidak valid. */
+export class PaymentProviderError extends AppError {
+  constructor(message = "failed to create payment") {
+    super("PAYMENT_ERROR", 502, message);
   }
 }
 

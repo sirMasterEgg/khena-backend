@@ -6,6 +6,7 @@ import {
   integer,
   pgTable,
   text,
+  timestamp,
   uniqueIndex,
   uuid,
   varchar,
@@ -49,9 +50,26 @@ export const salesOrders = pgTable(
     // Nama marketplace asal transaksi, mis. "shopee" / "tokopedia".
     // Hanya terisi untuk baris dengan createdVia = "marketplace".
     marketplaceName: varchar("marketplace_name", { length: 50 }),
-    // Nama pembeli di marketplace. Bukan customer terdaftar, jadi disimpan
-    // sebagai teks lepas dan `customer_id` dibiarkan null.
+    // Nama pembeli untuk order tanpa customer terdaftar: marketplace (createdVia
+    // = "marketplace") maupun checkout storefront (createdVia = "online").
+    // Bukan customer terdaftar, jadi disimpan sebagai teks lepas dan
+    // `customer_id` boleh null.
     buyerName: varchar("buyer_name", { length: 255 }),
+    // Email & telepon pemesan dari form checkout storefront. Hanya terisi untuk
+    // createdVia = "online" — order lain (POS, order sales, marketplace) null.
+    buyerEmail: varchar("buyer_email", { length: 255 }),
+    buyerPhone: varchar("buyer_phone", { length: 20 }),
+    // Status pembayaran Midtrans: "unpaid" | "paid" | "expired" | "failed".
+    // Null untuk order non-online (POS, order sales, marketplace) — kolom ini
+    // milik alur checkout storefront saja.
+    paymentStatus: varchar("payment_status", { length: 15 }),
+    // Snap token & redirect URL dari Midtrans, dipakai frontend membuka halaman bayar.
+    paymentToken: varchar("payment_token", { length: 255 }),
+    paymentRedirectUrl: text("payment_redirect_url"),
+    // `payment_type` dari notifikasi Midtrans (mis. "bank_transfer", "qris").
+    paymentType: varchar("payment_type", { length: 30 }),
+    // Waktu status Midtrans "settlement" diterima.
+    paidAt: timestamp("paid_at"),
     // Jadwal pengiriman yang dijanjikan ke customer. Semuanya opsional —
     // order lama (dan order yang belum dijadwalkan) bernilai null.
     deliveryDate: date("delivery_date"),

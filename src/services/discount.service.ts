@@ -34,7 +34,7 @@ function isEntityTarget(type: AppliesToType): type is EntityTargetType {
  * Status yang disimpan hanya active/inactive. scheduled/expired dihitung dari
  * tanggal setiap kali data dibaca — lihat bagian 3.1 issue #71.
  */
-function resolveStatus(
+export function resolveStatus(
   row: { status: string; startDate: Date; endDate: Date },
   now: Date,
 ): "inactive" | "scheduled" | "expired" | "active" {

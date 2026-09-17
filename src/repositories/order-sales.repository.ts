@@ -79,6 +79,9 @@ export interface OrderListRow {
   discountAmount: number | null;
   total: number;
   status: string;
+  createdVia: string;
+  /** Status pembayaran Midtrans, hanya terisi untuk order online (createdVia = "online"). */
+  paymentStatus: string | null;
   trackingNumber: string | null;
   shippingAddress: string | null;
   shippingCity: string | null;
@@ -93,6 +96,10 @@ export interface OrderDetailRow extends OrderListRow {
   customerTotalSpend: number;
   paymentMethod: string;
   note: string | null;
+  buyerName: string | null;
+  buyerEmail: string | null;
+  buyerPhone: string | null;
+  paidAt: Date | null;
 }
 
 export interface OrderItemRow {
@@ -123,6 +130,8 @@ const ORDER_LIST_SELECTION = {
   discountAmount: salesOrders.discountAmount,
   total: salesOrders.total,
   status: salesOrders.status,
+  createdVia: salesOrders.createdVia,
+  paymentStatus: salesOrders.paymentStatus,
   trackingNumber: salesOrders.trackingNumber,
   shippingAddress: salesOrders.shippingAddress,
   shippingCity: salesOrders.shippingCity,
@@ -134,11 +143,17 @@ const ORDER_LIST_SELECTION = {
 };
 
 export class OrderSalesRepository {
-  /** Filter dasar yang dipakai hampir semua method di bawah. */
+  /**
+   * Filter dasar yang dipakai hampir semua method di bawah. Mencakup
+   * "order_sales" (input manual sales) DAN "online" (checkout storefront) —
+   * order online yang sudah dibayar dikelola lewat modul Order Sales yang
+   * sama (issue #104 asumsi A3), bukan modul terpisah. Marketplace tetap
+   * punya modulnya sendiri (lihat marketplace.repository.ts).
+   */
   private baseConditions(): SQL[] {
     return [
       isNull(salesOrders.deletedAt),
-      eq(salesOrders.createdVia, "order_sales"),
+      inArray(salesOrders.createdVia, ["order_sales", "online"]),
     ];
   }
   async create(data: NewSalesOrder, tx: Tx): Promise<SalesOrder> {
@@ -356,6 +371,10 @@ export class OrderSalesRepository {
         customerTotalSpend: customers.lifetimeValue,
         paymentMethod: salesOrders.paymentMethod,
         note: salesOrders.note,
+        buyerName: salesOrders.buyerName,
+        buyerEmail: salesOrders.buyerEmail,
+        buyerPhone: salesOrders.buyerPhone,
+        paidAt: salesOrders.paidAt,
       })
       .from(salesOrders)
       .leftJoin(customers, eq(salesOrders.customerId, customers.id))
@@ -378,6 +397,10 @@ export class OrderSalesRepository {
         customerTotalSpend: customers.lifetimeValue,
         paymentMethod: salesOrders.paymentMethod,
         note: salesOrders.note,
+        buyerName: salesOrders.buyerName,
+        buyerEmail: salesOrders.buyerEmail,
+        buyerPhone: salesOrders.buyerPhone,
+        paidAt: salesOrders.paidAt,
       })
       .from(salesOrders)
       .leftJoin(customers, eq(salesOrders.customerId, customers.id))
@@ -386,6 +409,76 @@ export class OrderSalesRepository {
       ...row,
       customerTotalSpend: row.customerTotalSpend ?? 0,
     }));
+  }
+
+  /**
+   * Order online (checkout storefront) by invoice number, dipakai webhook
+   * Midtrans. Sengaja TIDAK memakai baseConditions() — webhook hanya boleh
+   * menyentuh order dengan createdVia = "online", bukan order_sales manual.
+   */
+  async findOnlineOrderByInvoiceNumber(
+    invoiceNumber: string,
+    tx: DbOrTx = db,
+  ): Promise<SalesOrder | undefined> {
+    const result = await tx
+      .select()
+      .from(salesOrders)
+      .where(
+        and(
+          eq(salesOrders.invoiceNumber, invoiceNumber),
+          eq(salesOrders.createdVia, "online"),
+          isNull(salesOrders.deletedAt),
+        ),
+      )
+      .limit(1);
+    return result[0];
+  }
+
+  /**
+   * Kunci baris order (SELECT ... FOR UPDATE) by id. Dipakai webhook Midtrans
+   * supaya dua notifikasi yang datang bersamaan tidak balapan mengubah
+   * paymentStatus/status order yang sama.
+   */
+  async lockOrderById(id: string, tx: Tx): Promise<SalesOrder | undefined> {
+    const result = await tx
+      .select()
+      .from(salesOrders)
+      .where(eq(salesOrders.id, id))
+      .limit(1)
+      .for("update");
+    return result[0];
+  }
+
+  /**
+   * Update field pembayaran & status setelah checkout (simpan snap
+   * token/redirect URL) maupun dari webhook Midtrans. Dipisah dari
+   * `updateOrder` supaya Pick milik endpoint admin tidak ikut membengkak.
+   */
+  async updatePayment(
+    id: string,
+    data: Partial<
+      Pick<
+        SalesOrder,
+        | "status"
+        | "paymentStatus"
+        | "paymentToken"
+        | "paymentRedirectUrl"
+        | "paymentType"
+        | "paidAt"
+      >
+    >,
+    tx: DbOrTx = db,
+  ): Promise<SalesOrder> {
+    const result = await tx
+      .update(salesOrders)
+      .set(stampUpdate(data))
+      .where(eq(salesOrders.id, id))
+      .returning();
+    const row = result[0];
+    if (!row) {
+      throw new Error("failed to update sales order payment");
+    }
+    return row;
   }
 
   async countByStatus(): Promise<Map<string, number>> {
