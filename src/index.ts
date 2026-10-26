@@ -1,5 +1,4 @@
 import { cors } from "@elysia/cors";
-import { openapi } from "@elysia/openapi";
 import { Elysia } from "elysia";
 import { syncPermissions } from "./auth/permission-sync";
 import { userAuth } from "./auth/user-auth";
@@ -118,7 +117,6 @@ const app = new Elysia({ prefix: "/api" })
       allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token"],
     }),
   )
-  .use(openapi())
   .use(loggerPlugin)
   .onError(({ code, error, set }) => {
     // Error bisnis yang dilempar service/repository sebagai AppError.
